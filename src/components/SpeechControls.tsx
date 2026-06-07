@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Volume2, Play, Pause, RotateCcw } from 'lucide-react';
 import { cn } from './ui/ProgressBar';
+import { useTopicStore } from '../store/useTopicStore';
 
 interface SpeechControlsProps {
   text: string;
@@ -10,9 +11,10 @@ interface SpeechControlsProps {
 const SPEEDS = [0.75, 1, 1.25, 1.5];
 
 export function SpeechControls({ text, onComplete }: SpeechControlsProps) {
+  const voiceSettings = useTopicStore((state) => state.voiceSettings);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [rate, setRate] = useState(1);
+  const [rate, setRate] = useState(() => voiceSettings.rate);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const stop = useCallback(() => {
@@ -26,9 +28,12 @@ export function SpeechControls({ text, onComplete }: SpeechControlsProps) {
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Find German voice
+    // Find voice by saved URI or fall back to any German voice
     const voices = window.speechSynthesis.getVoices();
-    const germanVoice = voices.find(v => v.lang.startsWith('de')) || voices[0];
+    const savedVoice = voiceSettings.voiceURI
+      ? voices.find(v => v.voiceURI === voiceSettings.voiceURI)
+      : null;
+    const germanVoice = savedVoice || voices.find(v => v.lang.startsWith('de')) || voices[0];
     
     if (germanVoice) {
       utterance.voice = germanVoice;
@@ -36,6 +41,8 @@ export function SpeechControls({ text, onComplete }: SpeechControlsProps) {
     
     utterance.lang = 'de-DE';
     utterance.rate = rate;
+    utterance.pitch = voiceSettings.pitch;
+    utterance.volume = voiceSettings.volume;
 
     utterance.onstart = () => setIsPlaying(true);
     utterance.onend = () => {
@@ -50,7 +57,7 @@ export function SpeechControls({ text, onComplete }: SpeechControlsProps) {
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
-  }, [text, rate, stop, onComplete]);
+  }, [text, rate, stop, onComplete, voiceSettings.voiceURI, voiceSettings.pitch, voiceSettings.volume]);
 
   const togglePause = useCallback(() => {
     if (isPaused) {

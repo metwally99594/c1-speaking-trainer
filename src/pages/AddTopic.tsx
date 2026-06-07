@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { splitIntoSentences } from '../utils/sentenceSplitter';
+
+type SplitMethod = 'auto' | 'punctuation' | 'newline' | 'manual';
+
+const SPLIT_OPTIONS: { value: SplitMethod; label: string; description: string }[] = [
+  { value: 'auto', label: 'Auto', description: 'Smart detection of lists, lines, and punctuation.' },
+  { value: 'manual', label: 'Manual', description: 'One sentence per line. No automatic splitting.' },
+  { value: 'punctuation', label: 'Punctuation', description: 'Splits only at . ? and ! symbols.' },
+  { value: 'newline', label: 'Newline', description: 'Creates a sentence for every line break.' },
+];
 
 export default function AddTopic() {
   const navigate = useNavigate();
@@ -10,7 +19,13 @@ export default function AddTopic() {
   
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [splitMethod, setSplitMethod] = useState<'auto' | 'punctuation' | 'newline'>('auto');
+  const [splitMethod, setSplitMethod] = useState<SplitMethod>('auto');
+
+  const previewSentences = useMemo(() => {
+    if (!content.trim()) return [];
+    const result = splitIntoSentences(content, splitMethod);
+    return result.sentences;
+  }, [content, splitMethod]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,36 +75,52 @@ export default function AddTopic() {
             rows={10}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Paste your speaking text here..."
-            className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none"
+            placeholder={splitMethod === 'manual' ? 'Enter one sentence per line...' : 'Paste your speaking text here...'}
+            className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-none font-mono"
             required
           />
         </div>
+
+        {previewSentences.length > 0 && (
+          <div className="space-y-3 bg-black/50 border border-gray-800 rounded-xl p-5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">
+              Preview ({previewSentences.length} sentence{previewSentences.length !== 1 ? 's' : ''})
+            </span>
+            <div className="space-y-2">
+              {previewSentences.map((s, i) => (
+                <div key={s.id} className="flex items-start gap-3 text-sm">
+                  <span className="text-[10px] font-bold text-gray-600 mt-0.5 shrink-0 w-6 text-right">
+                    {i + 1}.
+                  </span>
+                  <span className="text-gray-300">{s.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-400 mb-2">
             Sentence Splitting Method
           </label>
-          <div className="grid grid-cols-3 gap-4">
-            {(['auto', 'punctuation', 'newline'] as const).map((method) => (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {SPLIT_OPTIONS.map((opt) => (
               <button
-                key={method}
+                key={opt.value}
                 type="button"
-                onClick={() => setSplitMethod(method)}
-                className={`py-2 px-4 rounded-lg text-sm font-medium border transition-all ${
-                  splitMethod === method
+                onClick={() => setSplitMethod(opt.value)}
+                className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all ${
+                  splitMethod === opt.value
                     ? 'bg-blue-600/10 border-blue-500 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
                     : 'bg-black border-gray-800 text-gray-500 hover:border-gray-700'
                 }`}
               >
-                {method.charAt(0).toUpperCase() + method.slice(1)}
+                {opt.label}
               </button>
             ))}
           </div>
           <p className="text-xs text-gray-600 mt-2">
-            {splitMethod === 'auto' && 'Smart detection of lists, lines, and punctuation.'}
-            {splitMethod === 'punctuation' && 'Splits only at . ? and ! symbols.'}
-            {splitMethod === 'newline' && 'Creates a sentence for every line break.'}
+            {SPLIT_OPTIONS.find(o => o.value === splitMethod)?.description}
           </p>
         </div>
 

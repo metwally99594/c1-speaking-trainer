@@ -22,11 +22,18 @@ export interface ExamSession {
   transcript: string;
 }
 
+export interface VoiceSettings {
+  voiceURI: string;
+  pitch: number;
+  volume: number;
+  rate: number;
+}
+
 export interface Topic {
   id: string;
   title: string;
   rawContent: string;
-  splitMethod: 'auto' | 'punctuation' | 'newline';
+  splitMethod: 'auto' | 'punctuation' | 'newline' | 'manual';
   sentences: Sentence[];
   createdAt: number;
 }

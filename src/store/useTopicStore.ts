@@ -1,16 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings } from '../models/types';
 
 interface TopicState {
   topics: Topic[];
   examHistory: ExamSession[];
+  voiceSettings: VoiceSettings;
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
   updateSentenceScore: (topicId: string, sentenceId: string, score: number) => void;
   getTopicProgress: (topicId: string) => number;
   addExamSession: (session: ExamSession) => void;
+  updateTopicSentences: (topicId: string, sentences: Sentence[]) => void;
+  updateVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   exportData: () => string;
   importData: (json: string) => boolean;
   resetAll: () => void;
@@ -21,6 +24,12 @@ export const useTopicStore = create<TopicState>()(
     (set, get) => ({
       topics: [],
       examHistory: [],
+      voiceSettings: {
+        voiceURI: '',
+        pitch: 1,
+        volume: 1,
+        rate: 1,
+      },
       addTopic: (topicData, sentences) => {
         const newTopic: Topic = {
           ...topicData,
@@ -88,6 +97,16 @@ export const useTopicStore = create<TopicState>()(
       },
       addExamSession: (session) => {
         set((state) => ({ examHistory: [session, ...state.examHistory] }));
+      },
+      updateTopicSentences: (topicId, sentences) => {
+        set((state) => ({
+          topics: state.topics.map((t) =>
+            t.id === topicId ? { ...t, sentences } : t
+          ),
+        }));
+      },
+      updateVoiceSettings: (settings) => {
+        set((state) => ({ voiceSettings: { ...state.voiceSettings, ...settings } }));
       },
       exportData: () => {
         const data = {

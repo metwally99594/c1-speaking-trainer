@@ -7,7 +7,7 @@ export interface SplitResult {
 
 export const splitIntoSentences = (
   text: string,
-  method: 'auto' | 'punctuation' | 'newline'
+  method: 'auto' | 'punctuation' | 'newline' | 'manual'
 ): SplitResult => {
   const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
   
@@ -25,6 +25,8 @@ export const splitIntoSentences = (
 
   if (method === 'newline') {
     rawSentences = contentLines;
+  } else if (method === 'manual') {
+    rawSentences = contentLines.map(l => l.trim()).filter(Boolean);
   } else if (method === 'punctuation') {
     rawSentences = contentText.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
   } else {
