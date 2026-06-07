@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { ProgressBar } from '../components/ui/ProgressBar';
@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight, CheckCircle2, Trophy, Scissors } from 'lucid
 export default function Practice() {
   const { topicId } = useParams<{ topicId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const topic = useTopicStore((state) => state.topics.find((t) => t.id === topicId));
   const toggleSentence = useTopicStore((state) => state.toggleSentence);
   const updateSentenceScore = useTopicStore((state) => state.updateSentenceScore);
@@ -20,18 +21,25 @@ export default function Practice() {
   const sentenceChunks = useTopicStore((state) => state.sentenceChunks);
   const updateSentenceChunks = useTopicStore((state) => state.updateSentenceChunks);
 
+  const remainingMode = searchParams.get('remaining') === 'true';
+  const [completedInSession, setCompletedInSession] = useState(0);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [focusWord, setFocusWord] = useState<{ word: string; sentence: string; status: string } | null>(null);
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [chunkMode, setChunkMode] = useState(false);
   const [chunkIndex, setChunkIndex] = useState(0);
 
-  const sentences = topic?.sentences || [];
+  const allSentences = topic?.sentences || [];
+  const sentences = remainingMode
+    ? allSentences.filter(s => !s.isCompleted)
+    : allSentences;
   const currentSentence = sentences[currentIndex];
   const chunks = currentSentence ? (sentenceChunks[currentSentence.id] || []) : [];
   const currentText = chunkMode && chunks.length > 0
     ? chunks[chunkIndex]?.text ?? ''
     : currentSentence?.text ?? '';
+  const isComplete = remainingMode && sentences.length > 0 && completedInSession >= sentences.length;
 
   const handleNext = useCallback(() => {
     if (chunkMode && chunks.length > 0) {
@@ -70,12 +78,13 @@ export default function Practice() {
     if (topicId && currentSentence) {
       if (!currentSentence.isCompleted) {
         toggleSentence(topicId, currentSentence.id);
+        if (remainingMode) setCompletedInSession((c) => c + 1);
       }
       if (currentIndex < sentences.length - 1) {
         handleNext();
       }
     }
-  }, [topicId, currentSentence, toggleSentence, currentIndex, handleNext, sentences.length]);
+  }, [topicId, currentSentence, toggleSentence, currentIndex, handleNext, sentences.length, remainingMode]);
 
   const handleSpeechResult = (score: number) => {
     if (topicId && currentSentence) {
@@ -119,10 +128,15 @@ export default function Practice() {
   }
 
   if (sentences.length === 0) {
+    const message = remainingMode
+      ? 'All sentences in this topic have been completed.'
+      : 'No sentences in this topic. Add content to this topic first.';
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-white mb-4">No sentences in this topic</h2>
-        <p className="text-gray-500 mb-4">This topic has no sentences to practice. Add content to this topic first.</p>
+        <h2 className="text-2xl font-bold text-white mb-4">
+          {remainingMode ? 'Topic Completed Successfully!' : 'No sentences found'}
+        </h2>
+        <p className="text-gray-500 mb-4">{message}</p>
         <Link to="/" className="text-blue-500 hover:underline">Return to Dashboard</Link>
       </div>
     );
@@ -136,7 +150,9 @@ export default function Practice() {
       <div className="bg-gray-950 border border-gray-900 rounded-2xl p-6 mb-8 shadow-xl">
         <div className="flex justify-between items-end mb-3">
           <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-500 block mb-1">Session Progress</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-gray-500 block mb-1">
+              {remainingMode ? 'Remaining Session' : 'Session Progress'}
+            </span>
             <span className="text-2xl font-black text-white">
               {currentIndex + 1} <span className="text-gray-600 font-normal">of</span> {sentences.length}
               {chunkMode && chunks.length > 0 && (
@@ -149,7 +165,7 @@ export default function Practice() {
             <span className="text-2xl font-black text-blue-500">{progress}%</span>
           </div>
         </div>
-        <ProgressBar progress={progress} className="h-2" />
+        <ProgressBar progress={remainingMode ? Math.round((completedInSession / sentences.length) * 100) : progress} className="h-2" />
       </div>
 
       {/* Mode Toggle + Split Button */}
@@ -318,11 +334,17 @@ export default function Practice() {
       </div>
 
       {/* Mastery Celebration */}
-      {progress === 100 && (
-        <div className="mt-12 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30 p-10 rounded-3xl text-center shadow-2xl overflow-hidden relative">
-          <Trophy size={80} className="absolute -right-4 -bottom-4 text-blue-500/10 transform rotate-12" />
-           <h3 className="text-3xl font-black text-white mb-3">Mastery Achieved! 🎉</h3>
-          <p className="text-gray-400 text-lg mb-8">You've successfully practiced all sentences in this topic.</p>
+      {(progress === 100 || isComplete) && (
+        <div className="mt-12 bg-gradient-to-br from-green-600/20 to-cyan-600/20 border border-green-500/30 p-10 rounded-3xl text-center shadow-2xl overflow-hidden relative">
+          <Trophy size={80} className="absolute -right-4 -bottom-4 text-green-500/10 transform rotate-12" />
+           <h3 className="text-3xl font-black text-white mb-3">
+            {remainingMode ? 'Topic Completed Successfully!' : 'Mastery Achieved!'} 🎉
+          </h3>
+          <p className="text-gray-400 text-lg mb-8">
+            {remainingMode
+              ? "You've completed all remaining sentences in this topic. Great progress!"
+              : "You've successfully practiced all sentences in this topic."}
+          </p>
           <button 
             onClick={() => navigate('/')}
             className="bg-white text-black px-10 py-4 rounded-2xl font-black transition-all hover:scale-105 active:scale-95"

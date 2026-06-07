@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { ProgressBar } from '../components/ui/ProgressBar';
-import { CheckCircle2, Circle, ArrowRight, PlayCircle, GraduationCap, GripVertical, Edit3, Save, X, Plus } from 'lucide-react';
+import { CheckCircle2, Circle, ArrowRight, PlayCircle, GraduationCap, GripVertical, Edit3, Save, X, Plus, RefreshCw } from 'lucide-react';
 import type { Sentence } from '../models/types';
 
 export default function TopicDetails() {
@@ -256,6 +256,39 @@ export default function TopicDetails() {
           </Link>
         </div>
       </PageHeader>
+
+      {/* Stats + Continue Remaining */}
+      {(() => {
+        const completed = topic.sentences.filter(s => s.isCompleted).length;
+        const remaining = topic.sentences.length - completed;
+        return (
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl text-center">
+              <p className="text-2xl font-black text-white">{topic.sentences.length}</p>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Total</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl text-center">
+              <p className="text-2xl font-black text-green-500">{completed}</p>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Completed</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 p-5 rounded-2xl text-center">
+              <p className="text-2xl font-black text-orange-400">{remaining}</p>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Remaining</p>
+            </div>
+            {remaining > 0 && (
+              <div className="col-span-3">
+                <Link
+                  to={`/practice/${topic.id}?remaining=true`}
+                  className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-orange-900/30"
+                >
+                  <RefreshCw size={18} />
+                  Continue Remaining ({remaining})
+                </Link>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="sticky top-20 z-40 bg-black/80 backdrop-blur-md py-4 mb-8 border-b border-gray-900">
         <div className="flex justify-between items-end mb-2">

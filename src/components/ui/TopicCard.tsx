@@ -1,5 +1,5 @@
 import { Trash2, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Topic } from '../../models/types';
 import { ProgressBar } from './ProgressBar';
 import { useTopicStore } from '../../store/useTopicStore';
@@ -9,6 +9,7 @@ interface TopicCardProps {
 }
 
 export function TopicCard({ topic }: TopicCardProps) {
+  const navigate = useNavigate();
   const deleteTopic = useTopicStore(state => state.deleteTopic);
   const progress = useTopicStore(state => state.getTopicProgress(topic.id));
 
@@ -49,8 +50,18 @@ export function TopicCard({ topic }: TopicCardProps) {
         <ProgressBar progress={progress} />
       </div>
 
-      <div className="mt-4 flex items-center text-sm font-medium text-blue-500">
-        Start Practicing <ChevronRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
+      <div className="mt-4 flex items-center justify-between">
+        <span className="flex items-center text-sm font-medium text-blue-500">
+          Start Practicing <ChevronRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
+        </span>
+        {progress > 0 && progress < 100 && (
+          <span
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/practice/${topic.id}?remaining=true`); }}
+            className="text-sm font-medium text-orange-400 hover:text-orange-300 hover:underline cursor-pointer"
+          >
+            Resume Topic →
+          </span>
+        )}
       </div>
     </Link>
   );
