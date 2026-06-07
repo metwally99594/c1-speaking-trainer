@@ -1,0 +1,32 @@
+export interface Sentence {
+  id: string;
+  text: string;
+  order: number;
+  isCompleted: boolean;
+  attempts?: number;
+  bestScore?: number;
+  lastScore?: number;
+  lastReviewedAt?: number;
+  nextReviewAt?: number;
+  masteryLevel?: number; // 0-5
+}
+
+export interface ExamSession {
+  id: string;
+  topicId: string;
+  topicTitle: string;
+  date: number;
+  coverageScore: number;
+  wordCount: number;
+  duration: number; // in seconds
+  transcript: string;
+}
+
+export interface Topic {
+  id: string;
+  title: string;
+  rawContent: string;
+  splitMethod: 'auto' | 'punctuation' | 'newline';
+  sentences: Sentence[];
+  createdAt: number;
+}
