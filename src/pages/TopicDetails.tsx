@@ -300,23 +300,29 @@ export default function TopicDetails() {
 
       <div className="space-y-4">
         {topic.sentences.map((sentence) => (
-          <button
+          <div
             key={sentence.id}
-            onClick={() => toggleSentence(topic.id, sentence.id)}
-            className={`w-full text-left p-6 rounded-2xl border transition-all flex items-start gap-4 group ${
+            className={`p-6 rounded-2xl border transition-all flex items-start gap-4 group ${
               sentence.isCompleted
                 ? 'bg-blue-600/5 border-blue-500/30'
-                : 'bg-gray-950 border-gray-900 hover:border-gray-700'
+                : 'bg-gray-950 border-gray-900'
             }`}
           >
-            <div className="mt-1">
+            <button
+              onClick={() => toggleSentence(topic.id, sentence.id)}
+              className="mt-1 cursor-pointer shrink-0"
+              title={sentence.isCompleted ? 'Mark as incomplete' : 'Mark as completed'}
+            >
               {sentence.isCompleted ? (
-                <CheckCircle2 className="text-blue-500" size={22} />
+                <CheckCircle2 className="text-blue-500 hover:text-blue-400 transition-colors" size={22} />
               ) : (
-                <Circle className="text-gray-700 group-hover:text-gray-500 transition-colors" size={22} />
+                <Circle className="text-gray-600 hover:text-gray-300 transition-colors" size={22} />
               )}
-            </div>
-            <div className="flex-1">
+            </button>
+            <Link
+              to={`/practice/${topic.id}?sentenceId=${sentence.id}`}
+              className="flex-1 block cursor-pointer hover:bg-white/[0.02] rounded-xl -mx-2 px-2 py-1 transition-colors"
+            >
               <p className={`text-lg leading-relaxed transition-colors ${
                 sentence.isCompleted ? 'text-gray-400 line-through decoration-blue-500/50' : 'text-gray-100'
               }`}>
@@ -326,11 +332,11 @@ export default function TopicDetails() {
                 <span className="text-[10px] uppercase tracking-wider font-bold text-gray-600">Sentence {sentence.order}</span>
                 <ArrowRight size={10} className="text-gray-700" />
                 <span className="text-[10px] uppercase tracking-wider font-bold text-blue-500/50">
-                  {sentence.isCompleted ? 'Mark as incomplete' : 'Mark as learned'}
+                  Click to practice this sentence
                 </span>
               </div>
-            </div>
-          </button>
+            </Link>
+          </div>
         ))}
       </div>
 

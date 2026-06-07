@@ -22,6 +22,7 @@ export default function Practice() {
   const updateSentenceChunks = useTopicStore((state) => state.updateSentenceChunks);
 
   const remainingMode = searchParams.get('remaining') === 'true';
+  const sentenceIdParam = searchParams.get('sentenceId');
   const [completedInSession, setCompletedInSession] = useState(0);
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -105,6 +106,17 @@ export default function Practice() {
     setChunkMode(true);
     setChunkIndex(0);
   };
+
+  // Jump to sentence specified by sentenceId query param
+  useEffect(() => {
+    if (sentenceIdParam && sentences.length > 0) {
+      const idx = sentences.findIndex(s => s.id === sentenceIdParam);
+      if (idx >= 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCurrentIndex(idx);
+      }
+    }
+  }, [sentenceIdParam, sentences]);
 
   // Keyboard navigation
   useEffect(() => {
