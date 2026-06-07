@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData } from '../models/types';
 import type { ComparedWord } from '../utils/accuracyEngine';
 
 interface TopicState {
@@ -8,6 +8,7 @@ interface TopicState {
   examHistory: ExamSession[];
   voiceSettings: VoiceSettings;
   wordStats: Record<string, WordStat>;
+  sentenceChunks: Record<string, ChunkData[]>;
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
@@ -18,6 +19,8 @@ interface TopicState {
   updateVoiceSettings: (settings: Partial<VoiceSettings>) => void;
   updateWordScore: (word: string, score: number) => void;
   recordWordResults: (words: ComparedWord[]) => void;
+  updateSentenceChunks: (sentenceId: string, chunks: ChunkData[]) => void;
+  getSentenceChunks: (sentenceId: string) => ChunkData[];
   exportData: () => string;
   importData: (json: string) => boolean;
   resetAll: () => void;
@@ -38,6 +41,7 @@ export const useTopicStore = create<TopicState>()(
         rate: 1,
       },
       wordStats: {},
+      sentenceChunks: {},
       addTopic: (topicData, sentences) => {
         const newTopic: Topic = {
           ...topicData,
@@ -191,6 +195,16 @@ export const useTopicStore = create<TopicState>()(
           };
         });
       },
+      updateSentenceChunks: (sentenceId, chunks) => {
+        set((state) => ({
+          sentenceChunks: { ...state.sentenceChunks, [sentenceId]: chunks },
+        }));
+      },
+
+      getSentenceChunks: (sentenceId) => {
+        return get().sentenceChunks[sentenceId] || [];
+      },
+
       exportData: () => {
         const data = {
           topics: get().topics,

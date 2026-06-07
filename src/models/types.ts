@@ -1,3 +1,9 @@
+export interface ChunkData {
+  id: string;
+  text: string;
+  order: number;
+}
+
 export interface Sentence {
   id: string;
   text: string;
