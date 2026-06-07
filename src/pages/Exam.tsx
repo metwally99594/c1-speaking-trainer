@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
-import { cn } from '../components/ui/ProgressBar';
-import { CheckCircle2, AlertCircle, Clock, FileText, BarChart3, HelpCircle } from 'lucide-react';
+import { cn } from '../utils/cn';
+import { CheckCircle2, AlertCircle, Clock, FileText, BarChart3, HelpCircle, Gauge } from 'lucide-react';
 import type { ExamSession } from '../models/types';
 
 const EXAMINER_QUESTIONS = [
@@ -29,10 +29,12 @@ export default function Exam() {
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [examResult, setExamResult] = useState<ExamSession | null>(null);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
@@ -40,6 +42,7 @@ export default function Exam() {
       recognition.continuous = true;
       recognition.interimResults = true;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onresult = (event: any) => {
         let finalTranscript = '';
 
@@ -51,6 +54,7 @@ export default function Exam() {
         setTranscript(prev => prev + finalTranscript);
       };
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         setIsRecording(false);
@@ -61,6 +65,7 @@ export default function Exam() {
 
     // Pick 2-3 random questions
     const shuffled = [...EXAMINER_QUESTIONS].sort(() => 0.5 - Math.random());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setQuestions(shuffled.slice(0, 3));
 
     return () => {
@@ -129,6 +134,7 @@ export default function Exam() {
 
     const coverageScore = Math.round((mentionedSentences.length / topic.sentences.length) * 100);
     const wordCount = transcript.split(/\s+/).filter(Boolean).length;
+    const speakingWPM = elapsedTime > 0 ? Math.round((wordCount / elapsedTime) * 60) : 0;
 
     const result: ExamSession = {
       id: crypto.randomUUID(),
@@ -138,6 +144,7 @@ export default function Exam() {
       coverageScore,
       wordCount,
       duration: elapsedTime,
+      speakingWPM,
       transcript
     };
 
@@ -236,7 +243,7 @@ export default function Exam() {
             <p className="text-gray-500">Gut gearbeitet! Hier ist Ihre Analyse.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div className="bg-gray-950 border border-gray-900 p-8 rounded-3xl text-center shadow-xl">
               <BarChart3 className="mx-auto text-blue-500 mb-4" size={32} />
               <div className="text-4xl font-black text-white mb-1">{examResult.coverageScore}%</div>
@@ -251,6 +258,20 @@ export default function Exam() {
               <Clock className="mx-auto text-green-500 mb-4" size={32} />
               <div className="text-4xl font-black text-white mb-1">{Math.floor(examResult.duration / 60)}:{(examResult.duration % 60).toString().padStart(2, '0')}</div>
               <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Dauer</div>
+            </div>
+            <div className="bg-gray-950 border border-gray-900 p-8 rounded-3xl text-center shadow-xl">
+              <Gauge className="mx-auto text-cyan-500 mb-4" size={32} />
+              <div className={cn(
+                "text-4xl font-black mb-1",
+                examResult.speakingWPM < 100 ? "text-red-400" :
+                examResult.speakingWPM <= 140 ? "text-green-400" :
+                "text-yellow-400"
+              )}>{examResult.speakingWPM}</div>
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                {examResult.speakingWPM < 100 ? "Zu langsam" :
+                 examResult.speakingWPM <= 140 ? "Gutes Tempo" :
+                 "Zu schnell"}
+              </div>
             </div>
           </div>
 

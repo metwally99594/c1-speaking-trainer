@@ -1,27 +1,40 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Mic, MicOff, RefreshCw, AlertCircle, Award } from 'lucide-react';
-import { cn } from './ui/ProgressBar';
+import { Mic, MicOff, RefreshCw, AlertCircle, Award, Gauge } from 'lucide-react';
+import { cn } from '../utils/cn';
 import { compareSentencesV2 } from '../utils/accuracyEngine';
 import type { ComparisonResultV2 } from '../utils/accuracyEngine';
+import { useTopicStore } from '../store/useTopicStore';
+
+interface WordClickData {
+  word: string;
+  status: string;
+  sentence: string;
+}
 
 interface SpeechRecognitionProps {
   originalText: string;
   onResult?: (score: number) => void;
+  onWordClick?: (data: WordClickData) => void;
 }
 
-export function SpeechRecognition({ originalText, onResult }: SpeechRecognitionProps) {
+export function SpeechRecognition({ originalText, onResult, onWordClick }: SpeechRecognitionProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [, setTranscript] = useState('');
   const [status, setStatus] = useState<'idle' | 'listening' | 'processing' | 'completed' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [comparison, setComparison] = useState<ComparisonResultV2 | null>(null);
   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
+  const startTimeRef = useRef<number>(0);
+  const [speakingWPM, setSpeakingWPM] = useState<number | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus('error');
       setErrorMessage('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
       return;
@@ -37,18 +50,30 @@ export function SpeechRecognition({ originalText, onResult }: SpeechRecognitionP
       setStatus('listening');
       setTranscript('');
       setComparison(null);
+      startTimeRef.current = Date.now();
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       const result = event.results[0][0].transcript;
       setTranscript(result);
       setStatus('processing');
+
+      const elapsedMs = Date.now() - startTimeRef.current;
+      const elapsedSec = elapsedMs / 1000;
+      const wordCount = result.split(/\s+/).filter(Boolean).length;
+      const wpm = elapsedSec > 0 ? Math.round((wordCount / elapsedSec) * 60) : 0;
+      setSpeakingWPM(wpm);
       
       const compResult = compareSentencesV2(originalText, result);
       setComparison(compResult);
       onResult?.(compResult.score);
+
+      // Auto-collect word statistics
+      useTopicStore.getState().recordWordResults(compResult.words);
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
       setIsRecording(false);
       setStatus('error');
@@ -171,24 +196,51 @@ export function SpeechRecognition({ originalText, onResult }: SpeechRecognitionP
             </div>
           </div>
 
+          {/* Speaking Pace */}
+          <div className="flex items-center gap-3 bg-gray-950 p-3 rounded-xl border border-gray-800">
+            <Gauge size={18} className="text-cyan-500" />
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Pace</span>
+              {speakingWPM !== null ? (
+                <span className={cn(
+                  "text-sm font-bold",
+                  speakingWPM < 100 ? "text-red-400" :
+                  speakingWPM <= 140 ? "text-green-400" :
+                  "text-yellow-400"
+                )}>
+                  {speakingWPM} WPM —
+                  {speakingWPM < 100 ? " Too Slow" :
+                   speakingWPM <= 140 ? " Good Pace" :
+                   " Too Fast"}
+                </span>
+              ) : (
+                <span className="text-sm text-gray-600">—</span>
+              )}
+            </div>
+            <span className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">Target: 100–140 WPM</span>
+          </div>
+
           <div className="space-y-4">
             <div className="space-y-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Comparison Result</span>
               <div className="flex flex-wrap gap-2 text-lg leading-relaxed">
                 {comparison.words.map((word, idx) => (
-                  <span 
+                  <button
                     key={idx}
+                    type="button"
+                    onClick={() => onWordClick?.({ word: word.text, status: word.status, sentence: originalText })}
                     className={cn(
-                      "px-1.5 py-0.5 rounded transition-all",
+                      "px-1.5 py-0.5 rounded transition-all cursor-pointer hover:ring-2 hover:ring-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500",
                       word.status === 'correct' && "text-green-400",
                       word.status === 'near-match' && "text-yellow-400 bg-yellow-400/10",
                       word.status === 'incorrect' && "text-red-400 bg-red-400/10",
                       word.status === 'missing' && "text-orange-400 bg-orange-400/10 line-through decoration-orange-500/50",
                       word.status === 'extra' && "text-blue-400 bg-blue-400/10"
                     )}
+                    title={`Focus on "${word.text}" (${word.status})`}
                   >
                     {word.text}
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>

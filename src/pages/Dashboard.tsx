@@ -2,12 +2,23 @@ import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { TopicCard } from '../components/ui/TopicCard';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Plus, RefreshCw, BookOpen, CheckCircle2, GraduationCap } from 'lucide-react';
+import { Plus, RefreshCw, BookOpen, CheckCircle2, GraduationCap, AlertTriangle, PartyPopper } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
   const topics = useTopicStore((state) => state.topics);
+  const wordStats = useTopicStore((state) => state.wordStats);
   
+  const weakWords = Object.values(wordStats).filter(
+    (w) => w.lastScore < 90 || w.nearMatchCount > 0 || w.missingCount > 0 || w.incorrectCount > 0
+  );
+  const worstWord = weakWords.length > 0
+    ? weakWords.reduce((a, b) => (a.averageScore || 0) < (b.averageScore || 0) ? a : b)
+    : null;
+  const avgWeakScore = weakWords.length > 0
+    ? Math.round(weakWords.reduce((s, w) => s + (w.averageScore || 0), 0) / weakWords.length)
+    : 0;
+
   const stats = {
     totalTopics: topics.length,
     totalSentences: topics.reduce((acc, t) => acc + t.sentences.length, 0),
@@ -48,7 +59,7 @@ export default function Dashboard() {
       </PageHeader>
 
       {/* Stats Widgets */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Topics', value: stats.totalTopics, icon: <BookOpen size={20} />, color: 'text-blue-500' },
           { label: 'Sentences', value: stats.totalSentences, icon: <Plus size={20} />, color: 'text-purple-500' },
@@ -62,6 +73,43 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Weak Words Widget */}
+      <Link
+        to="/words"
+        className="block bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg mb-10 hover:border-orange-500/30 transition-all group"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="text-orange-500">
+              {weakWords.length === 0 ? <PartyPopper size={24} /> : <AlertTriangle size={24} />}
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">Weak Words</h3>
+              <p className="text-sm text-gray-500">
+                {weakWords.length === 0
+                  ? 'Excellent! No weak words detected.'
+                  : worstWord
+                    ? `Worst: "${worstWord.word}" (${worstWord.averageScore || 0}%)`
+                    : `${weakWords.length} word${weakWords.length !== 1 ? 's' : ''} need attention`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <p className="text-2xl font-black text-white">{weakWords.length}</p>
+              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Weak</p>
+            </div>
+            {weakWords.length > 0 && (
+              <div className="text-right">
+                <p className="text-2xl font-black text-orange-400">{avgWeakScore}%</p>
+                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Avg Score</p>
+              </div>
+            )}
+            <span className="text-sm font-bold text-orange-400 group-hover:underline">Review Now →</span>
+          </div>
+        </div>
+      </Link>
 
       {topics.length === 0 ? (
         <EmptyState message="No topics added yet" />

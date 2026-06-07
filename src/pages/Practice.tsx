@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
-import { ProgressBar, cn } from '../components/ui/ProgressBar';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { cn } from '../utils/cn';
 import { SpeechControls } from '../components/SpeechControls';
 import { SpeechRecognition } from '../components/SpeechRecognition';
+import { WordFocusModal } from '../components/WordFocusModal';
 import { ChevronLeft, ChevronRight, CheckCircle2, Trophy } from 'lucide-react';
 
 export default function Practice() {
@@ -16,6 +18,7 @@ export default function Practice() {
   const progress = useTopicStore((state) => (topicId ? state.getTopicProgress(topicId) : 0));
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [focusWord, setFocusWord] = useState<{ word: string; sentence: string; status: string } | null>(null);
 
   const sentences = topic?.sentences || [];
   const currentSentence = sentences[currentIndex];
@@ -47,6 +50,10 @@ export default function Practice() {
     if (topicId && currentSentence) {
       updateSentenceScore(topicId, currentSentence.id, score);
     }
+  };
+
+  const handleWordClick = (data: { word: string; sentence: string; status: string }) => {
+    setFocusWord(data);
   };
 
   // Keyboard navigation
@@ -155,9 +162,20 @@ export default function Practice() {
         <SpeechRecognition 
           originalText={currentSentence.text} 
           onResult={handleSpeechResult}
+          onWordClick={handleWordClick}
           key={currentSentence.id} // Re-mount when sentence changes to reset state
         />
       </div>
+
+      {/* Word Focus Modal */}
+      {focusWord && (
+        <WordFocusModal
+          word={focusWord.word}
+          sentence={focusWord.sentence}
+          status={focusWord.status}
+          onClose={() => setFocusWord(null)}
+        />
+      )}
 
       {/* Navigation Controls */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-gray-900 p-6 z-50">

@@ -32,7 +32,7 @@ export const splitIntoSentences = (
   } else {
     // 'auto' mode
     contentLines.forEach(line => {
-      const listMatch = line.match(/^(\d+[\.\-\)]\s*)(.*)/);
+      const listMatch = line.match(/^(\d+[.)-]\s*)(.*)/);
       if (listMatch) {
         rawSentences.push(line);
       } else {

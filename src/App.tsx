@@ -7,6 +7,7 @@ import Practice from './pages/Practice';
 import Review from './pages/Review';
 import Exam from './pages/Exam';
 import ExamHistory from './pages/ExamHistory';
+import WeakWords from './pages/WeakWords';
 import Settings from './pages/Settings';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -23,6 +24,7 @@ function App() {
             <Route path="/review" element={<Review />} />
             <Route path="/exam/:topicId" element={<Exam />} />
             <Route path="/exam-history" element={<ExamHistory />} />
+            <Route path="/words" element={<WeakWords />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </Layout>

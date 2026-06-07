@@ -19,7 +19,20 @@ export interface ExamSession {
   coverageScore: number;
   wordCount: number;
   duration: number; // in seconds
+  speakingWPM: number;
   transcript: string;
+}
+
+export interface WordStat {
+  word: string;
+  attempts: number;
+  bestScore: number;
+  lastScore: number;
+  averageScore: number;
+  lastPracticedAt: number;
+  nearMatchCount: number;
+  missingCount: number;
+  incorrectCount: number;
 }
 
 export interface VoiceSettings {

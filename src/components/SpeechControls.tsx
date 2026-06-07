@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Volume2, Play, Pause, RotateCcw } from 'lucide-react';
-import { cn } from './ui/ProgressBar';
+import { cn } from '../utils/cn';
 import { useTopicStore } from '../store/useTopicStore';
 
 interface SpeechControlsProps {

@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
-import { ProgressBar, cn } from '../components/ui/ProgressBar';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { cn } from '../utils/cn';
 import { SpeechControls } from '../components/SpeechControls';
 import { SpeechRecognition } from '../components/SpeechRecognition';
+import { WordFocusModal } from '../components/WordFocusModal';
 import { ChevronLeft, ChevronRight, CheckCircle2, Trophy, AlertCircle } from 'lucide-react';
 import type { Sentence } from '../models/types';
 
@@ -21,6 +23,7 @@ export default function Review() {
   const [reviewQueue, setReviewQueue] = useState<ReviewItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
+  const [focusWord, setFocusWord] = useState<{ word: string; sentence: string; status: string } | null>(null);
 
   const reviewQueueRef = useRef(reviewQueue);
   const currentIndexRef = useRef(currentIndex);
@@ -45,6 +48,7 @@ export default function Review() {
     // Priority: lower best score first
     queue.sort((a, b) => (a.bestScore || 0) - (b.bestScore || 0));
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReviewQueue(queue);
   }, [topics]);
 
@@ -85,6 +89,10 @@ export default function Review() {
     if (item) {
       updateSentenceScore(item.topicId, item.id, score);
     }
+  };
+
+  const handleWordClick = (data: { word: string; sentence: string; status: string }) => {
+    setFocusWord(data);
   };
 
   // Keyboard navigation (stable refs, no re-subscription needed)
@@ -210,9 +218,19 @@ export default function Review() {
         <SpeechRecognition 
           originalText={currentItem.text} 
           onResult={handleSpeechResult}
+          onWordClick={handleWordClick}
           key={currentItem.id}
         />
       </div>
+
+      {focusWord && (
+        <WordFocusModal
+          word={focusWord.word}
+          sentence={focusWord.sentence}
+          status={focusWord.status}
+          onClose={() => setFocusWord(null)}
+        />
+      )}
 
       <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-gray-900 p-6 z-50">
         <div className="max-w-3xl mx-auto flex gap-4">

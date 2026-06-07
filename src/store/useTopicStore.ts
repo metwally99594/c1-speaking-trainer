@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession, VoiceSettings } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat } from '../models/types';
+import type { ComparedWord } from '../utils/accuracyEngine';
 
 interface TopicState {
   topics: Topic[];
   examHistory: ExamSession[];
   voiceSettings: VoiceSettings;
+  wordStats: Record<string, WordStat>;
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
@@ -14,10 +16,15 @@ interface TopicState {
   addExamSession: (session: ExamSession) => void;
   updateTopicSentences: (topicId: string, sentences: Sentence[]) => void;
   updateVoiceSettings: (settings: Partial<VoiceSettings>) => void;
+  updateWordScore: (word: string, score: number) => void;
+  recordWordResults: (words: ComparedWord[]) => void;
   exportData: () => string;
   importData: (json: string) => boolean;
   resetAll: () => void;
 }
+
+const normalizeWord = (text: string) =>
+  text.toLowerCase().replace(/[.,!?;:]/g, '').trim();
 
 export const useTopicStore = create<TopicState>()(
   persist(
@@ -30,6 +37,7 @@ export const useTopicStore = create<TopicState>()(
         volume: 1,
         rate: 1,
       },
+      wordStats: {},
       addTopic: (topicData, sentences) => {
         const newTopic: Topic = {
           ...topicData,
@@ -108,6 +116,81 @@ export const useTopicStore = create<TopicState>()(
       updateVoiceSettings: (settings) => {
         set((state) => ({ voiceSettings: { ...state.voiceSettings, ...settings } }));
       },
+      updateWordScore: (word, score) => {
+        set((state) => {
+          const normalized = normalizeWord(word);
+          const existing = state.wordStats[normalized] || {
+            word, attempts: 0, bestScore: 0, lastScore: 0,
+            averageScore: 0, lastPracticedAt: 0,
+            nearMatchCount: 0, missingCount: 0, incorrectCount: 0,
+          };
+          const newAttempts = existing.attempts + 1;
+          const newAvg = Math.round(
+            ((existing.averageScore * existing.attempts) + score) / newAttempts
+          );
+          return {
+            wordStats: {
+              ...state.wordStats,
+              [normalized]: {
+                ...existing,
+                word,
+                attempts: newAttempts,
+                bestScore: Math.max(existing.bestScore, score),
+                lastScore: score,
+                averageScore: newAvg,
+                lastPracticedAt: Date.now(),
+              },
+            },
+          };
+        });
+      },
+
+      recordWordResults: (words) => {
+        set((state) => {
+          const now = Date.now();
+          const updates: Record<string, Partial<WordStat>> = {};
+
+          for (const w of words) {
+            if (w.status === 'correct' || w.status === 'extra') continue;
+            const normalized = normalizeWord(w.text);
+            const existing = state.wordStats[normalized];
+            const score = Math.round(w.similarity * 100);
+            const newAttempts = (existing?.attempts || 0) + 1;
+            const oldAvg = existing?.averageScore || 0;
+            const oldAttempts = existing?.attempts || 0;
+            const newAvg = Math.round((oldAvg * oldAttempts + score) / newAttempts);
+
+            const base = {
+              word: w.text,
+              attempts: newAttempts,
+              bestScore: Math.max(existing?.bestScore || 0, score),
+              lastScore: score,
+              averageScore: newAvg,
+              lastPracticedAt: now,
+              nearMatchCount: existing?.nearMatchCount || 0,
+              missingCount: existing?.missingCount || 0,
+              incorrectCount: existing?.incorrectCount || 0,
+            };
+
+            if (w.status === 'near-match') base.nearMatchCount = (existing?.nearMatchCount || 0) + 1;
+            if (w.status === 'missing') base.missingCount = (existing?.missingCount || 0) + 1;
+            if (w.status === 'incorrect') base.incorrectCount = (existing?.incorrectCount || 0) + 1;
+
+            updates[normalized] = base;
+          }
+
+          if (Object.keys(updates).length === 0) return state;
+
+          return {
+            wordStats: {
+              ...state.wordStats,
+              ...Object.fromEntries(
+                Object.entries(updates).map(([key, val]) => [key, { ...state.wordStats[key], ...val }])
+              ),
+            },
+          };
+        });
+      },
       exportData: () => {
         const data = {
           topics: get().topics,
@@ -134,7 +217,7 @@ export const useTopicStore = create<TopicState>()(
         }
       },
       resetAll: () => {
-        set({ topics: [], examHistory: [] });
+        set({ topics: [], examHistory: [], wordStats: {} });
       },
     }),
     {

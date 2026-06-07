@@ -5,12 +5,16 @@ Ein professioneller Trainer zur Vorbereitung auf die deutsche C1-Prüfung (Goeth
 ## Funktionen
 
 - **Themen-Management:** Erstellen und organisieren Sie Ihre eigenen Präsentationsthemen.
-- **Intelligentes Splitting:** Automatische Aufteilung von Texten in übbare Sätze.
-- **Text-to-Speech:** Hören Sie die korrekte deutsche Aussprache (systemabhängig).
-- **Spracherkennung:** Üben Sie das Sprechen und erhalten Sie sofortiges Feedback.
-- **Vergleichs-Engine:** Erkennt fehlende, falsche oder zusätzliche Wörter in Ihrer Rede.
+- **Intelligentes Splitting:** Automatische Aufteilung von Texten in übbare Sätze (Auto, Satzzeichen, Zeilenumbruch, Manuell).
+- **Word Focus Mode:** Klicken Sie auf einzelne Wörter im Feedback, um deren Aussprache gezielt zu üben.
+- **Weak Words Dashboard:** Automatische Erkennung von Problemwörtern mit Statistik, Suche und Sortierung.
+- **Tägliche Wiederholung:** Priorisierte Wiederholung der schwächsten Wörter.
+- **Text-to-Speech:** Hören Sie die korrekte deutsche Aussprache mit einstellbarer Geschwindigkeit und Stimme.
+- **Spracherkennung:** Üben Sie das Sprechen und erhalten Sie sofortiges Feedback auf Wortebene.
+- **Vergleichs-Engine:** Levenshtein-basierte Fuzzy-Erkennung für fehlende, falsche oder zusätzliche Wörter.
+- **Sprechgeschwindigkeit:** Analyse der Wörter pro Minute mit Zielbereich 100–140 WPM für C1-Niveau.
 - **Spaced Repetition:** Intelligente Wiederholungszyklen basierend auf Ihrer Leistung.
-- **Prüfungsmodus:** Simulieren Sie eine echte C1-Prüfung mit Zeitmessung und Anschlussfragen.
+- **Prüfungsmodus:** Simulieren Sie eine echte C1-Prüfung mit Zeitmessung, Sprechgeschwindigkeit und Anschlussfragen.
 - **Backup & Datenschutz:** Alle Daten werden lokal im Browser gespeichert. Exportieren und importieren Sie Ihre Backups jederzeit.
 
 ## Installation

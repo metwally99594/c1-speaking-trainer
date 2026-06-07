@@ -1,6 +1,6 @@
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Clock, FileText, BarChart3, Calendar } from 'lucide-react';
+import { Clock, FileText, BarChart3, Calendar, Gauge } from 'lucide-react';
 
 export default function ExamHistory() {
   const examHistory = useTopicStore((state) => state.examHistory);
@@ -30,7 +30,7 @@ export default function ExamHistory() {
                   <h3 className="text-2xl font-black text-white">{session.topicTitle}</h3>
                 </div>
 
-                <div className="grid grid-cols-3 gap-8">
+                <div className="grid grid-cols-4 gap-4">
                   <div className="text-center md:text-right">
                     <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Abdeckung</p>
                     <div className="flex items-center gap-2 justify-center md:justify-end">
@@ -52,6 +52,13 @@ export default function ExamHistory() {
                       <span className="text-xl font-black text-white">
                         {Math.floor(session.duration / 60)}:{(session.duration % 60).toString().padStart(2, '0')}
                       </span>
+                    </div>
+                  </div>
+                  <div className="text-center md:text-right">
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Tempo</p>
+                    <div className="flex items-center gap-2 justify-center md:justify-end">
+                      <Gauge size={16} className="text-cyan-500" />
+                      <span className="text-xl font-black text-white">{session.speakingWPM || 0}</span>
                     </div>
                   </div>
                 </div>
