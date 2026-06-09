@@ -129,17 +129,24 @@ export async function evaluateTelcPresentation(
   topic: string,
   transcript: string,
   duration: number,
-  wpm: number
+  wpm: number,
+  discussionTurns?: { role: string; text: string }[]
 ): Promise<string> {
-  const systemPrompt = `You are an official TELC C1 examiner evaluating a German speaking exam presentation.
+  const discussionSection = discussionTurns && discussionTurns.length > 0
+    ? `\n\nDiscussion transcript:\n${discussionTurns.map((t) => `${t.role === 'examiner' ? 'Examiner' : 'Candidate'}: ${t.text}`).join('\n')}`
+    : '';
 
-Evaluate the presentation according to these official TELC C1 criteria and return a JSON object (no markdown, no code fences):
+  const systemPrompt = `You are an official TELC C1 examiner evaluating a German speaking exam.
 
-1. aufgabengerechtheit (task completion): A/B/C/D — Did the user answer the topic? Was the presentation structured? Were examples provided? Was it coherent?
+The candidate gave a presentation and then participated in an interactive discussion with the examiner.
 
-2. flüssigkeit (fluency): A/B/C/D — Natural flow, hesitation, long pauses, communication continuity. Use transcript and timing metrics (duration: ${duration}s, WPM: ${wpm}).
+Evaluate BOTH the presentation AND discussion according to these official TELC C1 criteria and return a JSON object (no markdown, no code fences):
 
-3. repertoire (range): A/B/C/D — Vocabulary range, variety of expressions, connectors (darüber hinaus, außerdem, einerseits, andererseits, folglich etc.), repetition.
+1. aufgabengerechtheit (task completion): A/B/C/D — Did the user answer the topic? Was the presentation structured? Were examples provided? Was it coherent? How well did they handle the discussion?
+
+2. flüssigkeit (fluency): A/B/C/D — Natural flow, hesitation, long pauses, communication continuity. Use transcript and timing metrics (duration: ${duration}s, WPM: ${wpm}). Also assess discussion spontaneity.
+
+3. repertoire (range): A/B/C/D — Vocabulary range, variety of expressions, connectors (darüber hinaus, außerdem, einerseits, andererseits, folglich etc.), repetition. Assess both presentation and discussion.
 
 4. grammatischeRichtigkeit (grammatical accuracy): A/B/C/D — Sentence structure, verb placement, weil/dass clauses, tense usage, article usage.
 
@@ -147,16 +154,16 @@ Evaluate the presentation according to these official TELC C1 criteria and retur
 
 Also generate:
 - estimatedPoints: number (0-100)
-- strengths: string[] (array of strengths in German)
-- weaknesses: string[] (array of weaknesses in German)
-- detailedFeedback: string (detailed feedback in German)
-- improvementSuggestions: string[] (array of improvement suggestions in German)
+- strengths: string[] (array of strengths in German, include discussion performance)
+- weaknesses: string[] (array of weaknesses in German, include discussion performance)
+- detailedFeedback: string (detailed feedback in German covering both presentation and discussion)
+- improvementSuggestions: string[] (array of practical improvement suggestions in German, e.g. "Use more connectors like 'darüber hinaus' and 'außerdem'", "Give more concrete examples", "Reduce repetition of the same words", "Improve sentence complexity with subordinate clauses")
 - readinessScore: number (0-100)
 - likelyExamLevel: "Strong Pass" | "Pass" | "Borderline"
 
 Return valid JSON with these exact keys (camelCase as shown).`;
 
-  const userPrompt = `Topic: ${topic}\n\nTranscript: ${transcript}\n\nDuration: ${duration} seconds\nSpeaking pace: ${wpm} WPM`;
+  const userPrompt = `Topic: ${topic}\n\nPresentation transcript: ${transcript}\n\nDuration: ${duration} seconds\nSpeaking pace: ${wpm} WPM${discussionSection}`;
 
   return makeRequest(config, {
     model: config.model || DEFAULT_MODEL,
@@ -166,6 +173,53 @@ Return valid JSON with these exact keys (camelCase as shown).`;
     ],
     temperature: 0.3,
     max_tokens: 2000,
+  });
+}
+
+export async function generateDiscussionResponse(
+  config: OpenRouterConfig,
+  topic: string,
+  transcript: string,
+  discussionTurns: { role: string; text: string }[],
+  turnIndex: number
+): Promise<string> {
+  const totalTurns = 5;
+  const isLastTurn = turnIndex >= totalTurns - 1;
+
+  const discussionHistory = discussionTurns
+    .map((t) => `${t.role === 'examiner' ? 'Examiner' : 'Candidate'}: ${t.text}`)
+    .join('\n');
+
+  const systemPrompt = `You are an official TELC C1 examiner conducting an interactive discussion.
+
+The candidate has just given a presentation on the topic. Now you are having a discussion with them.
+
+${
+  isLastTurn
+    ? 'This is your LAST turn. Wrap up the discussion naturally and signal that the discussion phase is complete.'
+    : 'Ask a relevant follow-up question or challenge based on what the candidate said. Relate your question to the specific topic and the candidate\'s arguments.'
+}
+
+Rules:
+- Questions MUST be related to the specific topic, not generic
+- Challenge the candidate's观点 where appropriate
+- Ask for examples, counterarguments, or personal experience
+- Respond naturally as an examiner would
+- Keep responses concise (1-2 sentences)
+- Speak in German
+
+Return a JSON object (no markdown, no code fences) with key "response" containing your examiner message.`;
+
+  const userPrompt = `Topic: ${topic}\n\nCandidate's presentation: ${transcript}\n\nDiscussion so far:\n${discussionHistory || 'No discussion yet.'}\n\nTurn ${turnIndex + 1} of ${totalTurns}: Provide your examiner response.`;
+
+  return makeRequest(config, {
+    model: config.model || DEFAULT_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.6,
+    max_tokens: 300,
   });
 }
 
@@ -205,29 +259,34 @@ export async function evaluateFollowUpAnswers(
   config: OpenRouterConfig,
   topic: string,
   transcript: string,
-  questionsAndAnswers: { question: string; answer: string }[]
+  questionsAndAnswers: { question: string; answer: string }[],
+  discussionTurns?: { role: string; text: string }[]
 ): Promise<string> {
   const qaText = questionsAndAnswers
     .map((qa, i) => `Question ${i + 1}: ${qa.question}\nAnswer ${i + 1}: ${qa.answer}`)
     .join('\n\n');
 
-  const systemPrompt = `You are an official TELC C1 examiner evaluating follow-up answers.
+  const discussionSection = discussionTurns && discussionTurns.length > 0
+    ? `\n\nInteractive discussion:\n${discussionTurns.map((t) => `${t.role === 'examiner' ? 'Examiner' : 'Candidate'}: ${t.text}`).join('\n')}`
+    : '';
 
-Given the user's presentation and their answers to follow-up questions, provide a refined final evaluation.
+  const systemPrompt = `You are an official TELC C1 examiner evaluating a complete exam.
 
-Return the SAME JSON structure as the main evaluation. The follow-up answers may adjust the scores slightly.
+The candidate gave a presentation, participated in an interactive discussion, and answered follow-up questions.
 
-Return valid JSON with these exact keys:
+Return a FINAL evaluation JSON with these exact keys:
 - aufgabengerechtheit, flüssigkeit, repertoire, grammatischeRichtigkeit, ausspracheUndIntonation (each A/B/C/D)
 - estimatedPoints (number 0-100)
 - strengths (string[])
 - weaknesses (string[])
 - detailedFeedback (string)
-- improvementSuggestions (string[])
+- improvementSuggestions (string[], practical suggestions like "Use more connectors", "Give concrete examples", "Reduce repetition", "Improve sentence complexity")
 - readinessScore (number 0-100)
-- likelyExamLevel ("Strong Pass" | "Pass" | "Borderline")`;
+- likelyExamLevel ("Strong Pass" | "Pass" | "Borderline")
 
-  const userPrompt = `Topic: ${topic}\n\nPresentation: ${transcript}\n\nFollow-up:\n${qaText}`;
+No markdown, no code fences. Return valid JSON only.`;
+
+  const userPrompt = `Topic: ${topic}\n\nPresentation: ${transcript}\n\nFollow-up:\n${qaText}${discussionSection}`;
 
   return makeRequest(config, {
     model: config.model || DEFAULT_MODEL,

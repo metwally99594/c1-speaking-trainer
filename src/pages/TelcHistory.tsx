@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import {
   Clock, MessageSquare, ChevronDown, ChevronUp,
-  Star, BookOpen, Gauge, AlertCircle
+  Star, BookOpen, Gauge, AlertCircle, Volume2, MessageCircle
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -141,6 +141,39 @@ export default function TelcHistory() {
                     </div>
                   </div>
 
+                  {/* Audio Playback */}
+                  {session.audioBlob && (
+                    <AudioPlayer audioBlob={session.audioBlob} />
+                  )}
+
+                  {/* Discussion Turns */}
+                  {session.discussionTurns && session.discussionTurns.length > 0 && (
+                    <details className="bg-gray-900 rounded-xl border border-gray-800">
+                      <summary className="p-4 cursor-pointer text-sm font-bold text-gray-400 hover:text-gray-300 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle size={14} />
+                          Diskussion ({session.discussionTurns.filter(t => t.role === 'examiner').length} Runden)
+                        </div>
+                      </summary>
+                      <div className="px-4 pb-4 space-y-3">
+                        {session.discussionTurns.map((turn, i) => (
+                          <div key={i} className={cn(
+                            "rounded-xl p-3 border",
+                            turn.role === 'examiner' ? "bg-gray-800 border-gray-700" : "bg-indigo-600/10 border-indigo-500/20"
+                          )}>
+                            <p className={cn(
+                              "text-[10px] font-bold uppercase tracking-widest mb-1",
+                              turn.role === 'examiner' ? "text-gray-500" : "text-indigo-400"
+                            )}>
+                              {turn.role === 'examiner' ? 'Prüfer' : 'Sie'}
+                            </p>
+                            <p className="text-sm text-gray-300">{turn.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
                   {/* Evaluation */}
                   {hasEval && session.evaluation && (
                     <>
@@ -216,6 +249,47 @@ export default function TelcHistory() {
           Neue TELC-Prüfung
         </Link>
       </div>
+    </div>
+  );
+}
+
+function AudioPlayer({ audioBlob }: { audioBlob: string }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const handlePlay = () => {
+    if (audioRef.current) {
+      if (playing) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        setPlaying(false);
+      } else {
+        audioRef.current.play();
+        setPlaying(true);
+      }
+    }
+  };
+
+  return (
+    <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Volume2 size={16} className="text-cyan-500" />
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Audio-Aufnahme</span>
+        </div>
+        <button
+          onClick={handlePlay}
+          className="flex items-center gap-2 bg-cyan-600/10 hover:bg-cyan-600/20 text-cyan-400 px-4 py-2 rounded-lg text-xs font-bold transition-all border border-cyan-500/20"
+        >
+          {playing ? 'Stop' : 'Abspielen'}
+        </button>
+      </div>
+      <audio
+        ref={audioRef}
+        src={audioBlob}
+        onEnded={() => setPlaying(false)}
+        className="hidden"
+      />
     </div>
   );
 }

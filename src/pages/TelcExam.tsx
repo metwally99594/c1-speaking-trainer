@@ -6,11 +6,12 @@ import {
   Mic, MicOff, Clock, Trophy, ChevronDown, ChevronUp,
   Loader2, AlertCircle, MessageSquare, Gauge, BookOpen,
   CheckCircle2, XCircle, HelpCircle, RefreshCw,
-  FolderOpen, Edit3, Sparkles, ArrowRight
+  FolderOpen, Edit3, Sparkles, ArrowRight,
+  MessageCircle, Send
 } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, OpenRouterError } from '../services/openRouter';
-import type { TelcEvaluation, FollowUpQA, TelcExamSession } from '../models/types';
+import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, OpenRouterError } from '../services/openRouter';
+import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession } from '../models/types';
 
 const TELC_TOPICS = [
   'Welche Berufsgruppe halten Sie für besonders wichtig?',
@@ -32,7 +33,7 @@ const TELC_TOPICS = [
 
 const TELC_DURATION = 180; // 3 minutes
 
-type Phase = 'topic-select' | 'preparation' | 'presentation' | 'completed' | 'followup' | 'evaluating' | 'evaluation-done' | 'error';
+type Phase = 'topic-select' | 'preparation' | 'presentation' | 'completed' | 'discussion' | 'followup' | 'evaluating' | 'evaluation-done' | 'error';
 type TopicSource = 'existing' | 'custom' | 'random';
 
 export default function TelcExam() {
@@ -74,6 +75,17 @@ export default function TelcExam() {
   const [followUpAnswers, setFollowUpAnswers] = useState<string[]>([]);
   const [currentFQIndex] = useState(0);
 
+  // Discussion
+  const [discussionTurns, setDiscussionTurns] = useState<DiscussionTurn[]>([]);
+  const [discussionLoading, setDiscussionLoading] = useState(false);
+  const [discussionInput, setDiscussionInput] = useState('');
+  const DISCUSSION_MAX_TURNS = 5;
+
+  // Audio Recording
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   // Evaluation
   const [evaluation, setEvaluation] = useState<TelcEvaluation | null>(null);
   const [aiError, setAiError] = useState('');
@@ -109,12 +121,18 @@ export default function TelcExam() {
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch { /* ignore */ }
       }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
+      }
     };
   }, [stopTimer]);
 
   const handleStopRecording = useCallback(() => {
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch { /* ignore */ }
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
     }
     setIsRecording(false);
     stopTimer();
@@ -127,7 +145,7 @@ export default function TelcExam() {
     stopTimerAndRecording.current = handleStopRecording;
   }, [handleStopRecording]);
 
-  const startRecording = useCallback(() => {
+  const startRecording = useCallback(async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
@@ -181,6 +199,26 @@ export default function TelcExam() {
       setIsRecording(false);
     };
 
+    // Start audio recording
+    audioChunksRef.current = [];
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        // Stop all tracks
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+    } catch {
+      // Audio recording not critical, continue without it
+    }
+
     recognitionRef.current = recognition;
     recognition.start();
     startTimer();
@@ -206,6 +244,10 @@ export default function TelcExam() {
   };
 
   const handleRunEvaluation = async () => {
+    const audioBase64 = audioBlob ? await blobToBase64(audioBlob) : undefined;
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now();
+
     const session: TelcExamSession = {
       id: crypto.randomUUID(),
       topic,
@@ -213,10 +255,12 @@ export default function TelcExam() {
       duration: elapsed,
       wordCount,
       wpm,
-      timestamp: Date.now(),
+      timestamp: now,
+      discussionTurns,
       followUpQA: [],
       evaluation: null,
       aiAvailable: false,
+      audioBlob: audioBase64,
     };
     addTelcSession(session);
     setSessionId(session.id);
@@ -236,7 +280,8 @@ export default function TelcExam() {
         topic,
         session.transcript,
         session.duration,
-        session.wpm
+        session.wpm,
+        discussionTurns
       );
 
       const clean = result.replace(/```(?:json)?\s*/gi, '').trim();
@@ -291,7 +336,8 @@ export default function TelcExam() {
         { apiKey: telcSettings.apiKey, model: telcSettings.model },
         topic,
         transcriptRef.current.trim(),
-        qa
+        qa,
+        discussionTurns
       );
 
       const clean = result.replace(/```(?:json)?\s*/gi, '').trim();
@@ -303,6 +349,61 @@ export default function TelcExam() {
     }
 
     setPhase('evaluation-done');
+  };
+
+  const handleStartDiscussion = async () => {
+    setPhase('discussion');
+    setDiscussionTurns([]);
+
+    // Generate first examiner question
+    await generateNextDiscussionTurn([]);
+  };
+
+  const generateNextDiscussionTurn = async (existingTurns: DiscussionTurn[]) => {
+    setDiscussionLoading(true);
+    try {
+      const result = await generateDiscussionResponse(
+        { apiKey: telcSettings.apiKey, model: telcSettings.model },
+        topic,
+        transcriptRef.current.trim(),
+        existingTurns,
+        existingTurns.length
+      );
+      const clean = result.replace(/```(?:json)?\s*/gi, '').trim();
+      const parsed = JSON.parse(clean);
+      const examinerResponse = parsed.response || parsed.text || '';
+      if (examinerResponse) {
+        const newTurn: DiscussionTurn = { role: 'examiner', text: examinerResponse };
+        const updated = [...existingTurns, newTurn];
+        setDiscussionTurns(updated);
+      }
+    } catch {
+      // Discussion generation failed, proceed to evaluation
+      setDiscussionTurns(existingTurns);
+    }
+    setDiscussionLoading(false);
+  };
+
+  const handleDiscussionAnswer = async () => {
+    if (!discussionInput.trim() || discussionLoading) return;
+    const candidateTurn: DiscussionTurn = { role: 'candidate', text: discussionInput.trim() };
+    const updated = [...discussionTurns, candidateTurn];
+    setDiscussionTurns(updated);
+    setDiscussionInput('');
+
+    // Check if we've had enough turns
+    const examinerTurns = updated.filter((t) => t.role === 'examiner').length;
+    if (examinerTurns >= DISCUSSION_MAX_TURNS) {
+      // Proceed to evaluation after discussion
+      setPhase('completed');
+      return;
+    }
+
+    await generateNextDiscussionTurn(updated);
+  };
+
+  const handleSkipDiscussion = () => {
+    setPhase('completed');
   };
 
   const getGradeColor = (grade: string) => {
@@ -332,6 +433,15 @@ export default function TelcExam() {
   };
 
   const remaining = Math.max(0, TELC_DURATION - elapsed);
+
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
 
   // Topic Selection phase
   if (phase === 'topic-select') {
@@ -633,7 +743,7 @@ export default function TelcExam() {
     );
   }
 
-  // Completed phase - wait for user to trigger evaluation
+  // Completed phase
   if (phase === 'completed') {
     return (
       <div className="max-w-2xl mx-auto pb-20">
@@ -655,14 +765,123 @@ export default function TelcExam() {
               <p className="text-xl font-black text-white mt-1">{wpm}</p>
             </div>
           </div>
+          <div className="space-y-4">
+            <button
+              onClick={handleStartDiscussion}
+              disabled={!telcSettings.aiEnabled || !telcSettings.apiKey}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/30 text-lg"
+            >
+              <MessageCircle size={24} />
+              Interaktive Diskussion starten
+            </button>
+            <button
+              onClick={handleRunEvaluation}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-900/20"
+            >
+              <MessageSquare size={20} />
+              Direkt zur Auswertung
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Discussion phase
+  if (phase === 'discussion') {
+    const examinerTurns = discussionTurns.filter((t) => t.role === 'examiner');
+    const isLastExaminerTurn = examinerTurns.length >= DISCUSSION_MAX_TURNS;
+
+    return (
+      <div className="max-w-3xl mx-auto pb-20">
+        <PageHeader title="TELC C1 — Diskussion" showBack />
+        <div className="bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border border-indigo-500/20 rounded-3xl p-6 mb-6 shadow-xl">
+          <div className="flex items-center gap-3 mb-2">
+            <MessageCircle size={24} className="text-indigo-500" />
+            <h2 className="text-xl font-black text-white">Diskussion mit dem Prüfer</h2>
+          </div>
+          <p className="text-gray-400 text-sm">
+            Der Prüfer stellt Ihnen Fragen zu Ihrer Präsentation. Antworten Sie frei.
+          </p>
+        </div>
+
+        {/* Discussion turns */}
+        <div className="space-y-4 mb-6 max-h-[400px] overflow-y-auto">
+          {discussionTurns.map((turn, idx) => (
+            <div key={idx} className={cn(
+              "flex gap-3",
+              turn.role === 'examiner' ? "justify-start" : "justify-end"
+            )}>
+              <div className={cn(
+                "max-w-[80%] rounded-2xl px-5 py-3",
+                turn.role === 'examiner'
+                  ? "bg-gray-800 border border-gray-700 text-gray-200"
+                  : "bg-indigo-600/20 border border-indigo-500/30 text-white"
+              )}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-60">
+                  {turn.role === 'examiner' ? 'Prüfer' : 'Sie'}
+                </p>
+                <p className="text-sm leading-relaxed">{turn.text}</p>
+              </div>
+            </div>
+          ))}
+          {discussionLoading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-800 border border-gray-700 rounded-2xl px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin text-indigo-500" />
+                  <span className="text-sm text-gray-400">Prüfer überlegt...</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Answer input */}
+        {!discussionLoading && !isLastExaminerTurn && (
+          <div className="bg-gray-950 border border-gray-900 rounded-2xl p-4 shadow-xl">
+            <textarea
+              value={discussionInput}
+              onChange={(e) => setDiscussionInput(e.target.value)}
+              placeholder="Ihre Antwort..."
+              rows={2}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleDiscussionAnswer();
+                }
+              }}
+              className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none text-sm mb-3"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={handleSkipDiscussion}
+                className="flex-1 py-3 rounded-xl border border-gray-800 bg-gray-950 text-gray-400 font-bold hover:bg-gray-900 transition-colors text-sm"
+              >
+                Diskussion überspringen
+              </button>
+              <button
+                onClick={handleDiscussionAnswer}
+                disabled={!discussionInput.trim()}
+                className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-all text-sm"
+              >
+                <Send size={16} />
+                Senden
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* End discussion button */}
+        {!discussionLoading && isLastExaminerTurn && (
           <button
-            onClick={handleRunEvaluation}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-900/30 text-lg"
+            onClick={handleSkipDiscussion}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/30 text-lg"
           >
             <MessageSquare size={24} />
-            KI-Auswertung starten
+            Zur Auswertung
           </button>
-        </div>
+        )}
       </div>
     );
   }

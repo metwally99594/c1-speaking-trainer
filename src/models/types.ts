@@ -83,6 +83,11 @@ export interface TelcEvaluation extends TelcGrade {
   likelyExamLevel: 'Strong Pass' | 'Pass' | 'Borderline';
 }
 
+export interface DiscussionTurn {
+  role: 'examiner' | 'candidate';
+  text: string;
+}
+
 export interface FollowUpQA {
   question: string;
   answer: string;
@@ -96,7 +101,9 @@ export interface TelcExamSession {
   wordCount: number;
   wpm: number;
   timestamp: number;
+  discussionTurns: DiscussionTurn[];
   followUpQA: FollowUpQA[];
   evaluation: TelcEvaluation | null;
   aiAvailable: boolean;
+  audioBlob?: string;
 }
