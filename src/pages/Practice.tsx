@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -24,6 +24,8 @@ export default function Practice() {
   const remainingMode = searchParams.get('remaining') === 'true';
   const sentenceIdParam = searchParams.get('sentenceId');
   const [completedInSession, setCompletedInSession] = useState(0);
+
+  const hasJumpedToSentence = useRef(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [focusWord, setFocusWord] = useState<{ word: string; sentence: string; status: string } | null>(null);
@@ -107,11 +109,12 @@ export default function Practice() {
     setChunkIndex(0);
   };
 
-  // Jump to sentence specified by sentenceId query param
+  // Jump to sentence specified by sentenceId query param (once on initial load)
   useEffect(() => {
-    if (sentenceIdParam && sentences.length > 0) {
+    if (sentenceIdParam && sentences.length > 0 && !hasJumpedToSentence.current) {
       const idx = sentences.findIndex(s => s.id === sentenceIdParam);
       if (idx >= 0) {
+        hasJumpedToSentence.current = true;
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setCurrentIndex(idx);
       }
