@@ -10,11 +10,39 @@ import {
   MessageCircle, Send
 } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, generateAiSummary, OpenRouterError } from '../services/openRouter';
-import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DurationEvaluation } from '../models/types';
+import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, generateAiSummary, generatePresentationQuestions, OpenRouterError } from '../services/openRouter';
+import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DurationEvaluation, PreparationNotes, PresentationQuestion } from '../models/types';
 import { analyzeRedemittel } from '../utils/redemittelAnalyzer';
 import { analyzeVocabulary } from '../utils/vocabularyAnalyzer';
 import { analyzeArgumentation } from '../utils/argumentationAnalyzer';
+
+const TELC_DISCUSSION_TASKS = [
+  '1. Wie verstehen Sie diese Aussage?',
+  '2. Sagen Sie, inwieweit Sie mit der Aussage übereinstimmen oder sie ablehnen.',
+  '3. Geben Sie dazu Gründe und Beispiele an.',
+  '4. Gehen Sie auch auf die Argumente Ihres Partners oder Ihrer Partnerin ein.',
+];
+
+const TELC_DISCUSSION_STATEMENTS = [
+  'Fernsehen ist reine Zeitverschwendung.',
+  'Erfolg ist planbar.',
+  'Universitätsbildung sollte kostenlos sein.',
+  'Soziale Medien richten mehr Schaden als Nutzen an.',
+  'Tierversuche sollten komplett verboten werden.',
+  'Homeoffice sollte zur Regel werden.',
+  'Künstliche Intelligenz gefährdet Arbeitsplätze.',
+  'Kernenergie ist eine sinnvolle Alternative zu fossilen Brennstoffen.',
+  'Ein bedingungsloses Grundeinkommen wäre sinnvoll.',
+  'Die 4-Tage-Woche sollte eingeführt werden.',
+  'Tempolimit auf Autobahnen ist überfällig.',
+  'Die Rente mit 67 ist ein Fehler.',
+  'Impfungen sollten verpflichtend sein.',
+  'Das deutsche Bildungssystem braucht eine grundlegende Reform.',
+  'Nachhaltigkeit ist wichtiger als Wirtschaftswachstum.',
+];
+
+const TELC_PREPARATION_TIME = 1200; // 20 minutes in seconds
+const TELC_DURATION = 180; // 3 minutes for presentation
 
 const TELC_TOPICS = [
   'Welche Berufsgruppe halten Sie für besonders wichtig?',
@@ -34,9 +62,7 @@ const TELC_TOPICS = [
   'Welche Rolle spielen Museen und Kultur in unserer Gesellschaft?',
 ];
 
-const TELC_DURATION = 180; // 3 minutes
-
-type Phase = 'topic-select' | 'preparation' | 'presentation' | 'completed' | 'summary' | 'discussion' | 'followup' | 'evaluating' | 'evaluation-done' | 'error';
+type Phase = 'role-select' | 'topic-select' | 'preparation' | 'presentation' | 'completed' | 'summary' | 'questions' | 'discussion-statement' | 'discussion' | 'followup' | 'evaluating' | 'evaluation-done' | 'error';
 type TopicSource = 'existing' | 'custom' | 'random';
 
 export default function TelcExam() {
@@ -54,6 +80,10 @@ export default function TelcExam() {
   const updateTelcSummaryFeedback = useTopicStore((state) => state.updateTelcSummaryFeedback);
   const updateTelcDurationEvaluation = useTopicStore((state) => state.updateTelcDurationEvaluation);
   const updateTelcDiscussionPerformance = useTopicStore((state) => state.updateTelcDiscussionPerformance);
+  const updateTelcPreparationNotes = useTopicStore((state) => state.updateTelcPreparationNotes);
+  const updateTelcPresentationQuestions = useTopicStore((state) => state.updateTelcPresentationQuestions);
+  const updateTelcDiscussionStatement = useTopicStore((state) => state.updateTelcDiscussionStatement);
+
 
   // Derive initial state from URL param (Zustand loads synchronously from localStorage)
   const initialTopic = topicIdParam ? topics.find((t) => t.id === topicIdParam) : null;
@@ -105,6 +135,23 @@ export default function TelcExam() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryFeedbackGiven, setSummaryFeedbackGiven] = useState(false);
 
+  // Preparation
+  const [prepNotes, setPrepNotes] = useState('');
+  const [prepKeywords, setPrepKeywords] = useState('');
+  const [prepOutline, setPrepOutline] = useState('');
+  const [prepTime, setPrepTime] = useState(TELC_PREPARATION_TIME);
+  const prepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Presentation questions
+  const [presQuestions, setPresQuestions] = useState<string[]>([]);
+  const [presAnswers, setPresAnswers] = useState<string[]>([]);
+
+  // Discussion statement
+  const [discussionStatement, setDiscussionStatement] = useState('');
+  const [discussionStatementCustom, setDiscussionStatementCustom] = useState('');
+
+  // Reverse role placeholder
+
   const startTimeRef = useRef(0);
   const transcriptRef = useRef('');
 
@@ -128,10 +175,35 @@ export default function TelcExam() {
     }, 200);
   }, [elapsed]);
 
+  // Preparation timer countdown
+  useEffect(() => {
+    if (phase !== 'preparation') return;
+    setPrepTime(TELC_PREPARATION_TIME);
+    prepTimerRef.current = setInterval(() => {
+      setPrepTime((prev) => {
+        if (prev <= 1) {
+          if (prepTimerRef.current) clearInterval(prepTimerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (prepTimerRef.current) {
+        clearInterval(prepTimerRef.current);
+        prepTimerRef.current = null;
+      }
+    };
+  }, [phase]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopTimer();
+      if (prepTimerRef.current) {
+        clearInterval(prepTimerRef.current);
+        prepTimerRef.current = null;
+      }
       if (recognitionRef.current) {
         try { recognitionRef.current.stop(); } catch { /* ignore */ }
       }
@@ -241,6 +313,11 @@ export default function TelcExam() {
   const handleStartExam = () => {
     setPhase('presentation');
     startRecording();
+  };
+
+  const handleRoleSelect = (role: 'presenter' | 'ai-presentation') => {
+    if (role !== 'presenter') return;
+    setPhase('topic-select');
   };
 
   const handleSelectTopic = () => {
@@ -429,6 +506,24 @@ export default function TelcExam() {
     updateTelcSummaryFeedback(sessionId, feedback);
   };
 
+  const handleShowQuestions = async () => {
+    setPhase('questions');
+    try {
+      const result = await generatePresentationQuestions(
+        { apiKey: telcSettings.apiKey, model: telcSettings.model },
+        topic,
+        transcriptRef.current.trim()
+      );
+      const clean = result.replace(/```(?:json)?\s*/gi, '').trim();
+      const parsed = JSON.parse(clean);
+      const questions: string[] = parsed.questions || [];
+      setPresQuestions(questions);
+      setPresAnswers(new Array(questions.length).fill(''));
+    } catch {
+      setPresQuestions([]);
+    }
+  };
+
   const handleStartDiscussion = async () => {
     setPhase('discussion');
     setDiscussionTurns([]);
@@ -526,6 +621,27 @@ export default function TelcExam() {
       reader.readAsDataURL(blob);
     });
   };
+
+  // Role selection phase
+  if (phase === 'role-select') {
+    return (
+      <div className="max-w-2xl mx-auto pb-20">
+        <PageHeader title="TELC C1 Prüfung" />
+        <div className="bg-gradient-to-br from-purple-600/10 to-blue-600/10 border border-purple-500/20 rounded-3xl p-8 shadow-xl text-center">
+          <BookOpen size={48} className="mx-auto text-purple-500 mb-6" />
+          <h2 className="text-2xl font-black text-white mb-4">Wählen Sie Ihre Rolle</h2>
+          <p className="text-gray-400 mb-8">TELC Teil 1: Sie präsentieren ein Thema und diskutieren anschließend mit dem Prüfer.</p>
+          <button
+            onClick={() => handleRoleSelect('presenter')}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/30 text-lg"
+          >
+            <MessageSquare size={24} />
+            Prüfung starten
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Topic Selection phase
   if (phase === 'topic-select') {
@@ -656,52 +772,94 @@ export default function TelcExam() {
   // Preparation phase
   if (phase === 'preparation') {
     return (
-      <div className="max-w-2xl mx-auto pb-20">
-        <PageHeader title="TELC C1 Prüfung" showBack />
-        <div className="bg-gradient-to-br from-purple-600/10 to-blue-600/10 border border-purple-500/20 rounded-3xl p-8 shadow-xl text-center">
-          <BookOpen size={48} className="mx-auto text-purple-500 mb-6" />
-          <div className="text-xs font-bold uppercase tracking-widest text-purple-500 mb-3">Ihr Thema</div>
-          <h2 className="text-2xl font-bold text-white leading-tight mb-8">{topic}</h2>
+      <div className="max-w-3xl mx-auto pb-20">
+        <PageHeader title="TELC C1 — Präsentationsvorbereitung" showBack />
+        <div className="text-xs font-bold uppercase tracking-widest text-purple-500 mb-4">Ihr Thema: {topic}</div>
 
-          <div className="grid grid-cols-1 gap-3 mb-8 text-left">
-            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-center gap-3">
-              <Clock size={20} className="text-purple-500 shrink-0" />
-              <div>
-                <p className="text-sm text-white font-bold">3 Minuten</p>
-                <p className="text-xs text-gray-500">Sprechzeit</p>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Timer */}
+          <div className="bg-gradient-to-br from-yellow-600/10 to-orange-600/10 border border-yellow-500/20 rounded-3xl p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <Clock size={24} className="text-yellow-500" />
+              <h2 className="text-lg font-black text-white">Vorbereitungszeit</h2>
             </div>
-            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-center gap-3">
-              <BookOpen size={20} className="text-purple-500 shrink-0" />
-              <div>
-                <p className="text-sm text-white font-bold">Freie Rede</p>
-                <p className="text-xs text-gray-500">Keine vorbereiteten Sätze</p>
-              </div>
+            <p className="text-gray-400 text-xs mb-4">Sie haben 20 Minuten Vorbereitungszeit. Ihre Notizen bleiben während der Präsentation sichtbar.</p>
+            <div className="text-center mb-4">
+              <p className="text-4xl font-black text-white">{formatTime(prepTime)}</p>
+              <p className="text-xs text-gray-600 mt-1">Verbleibend</p>
             </div>
-            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-center gap-3">
-              <MessageSquare size={20} className="text-purple-500 shrink-0" />
-              <div>
-                <p className="text-sm text-white font-bold">Folgefragen</p>
-                <p className="text-xs text-gray-500">Nach der Präsentation</p>
-              </div>
+            <div className="h-2 bg-gray-900 rounded-full overflow-hidden">
+              <div className="h-full bg-yellow-500 rounded-full transition-all duration-1000" style={{ width: `${(prepTime / TELC_PREPARATION_TIME) * 100}%` }} />
             </div>
           </div>
 
-          {!telcSettings.aiEnabled && (
-            <div className="flex items-center gap-2 text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl mb-8">
-              <AlertCircle size={18} />
-              <span className="text-sm font-bold">KI-Bewertung ist deaktiviert.</span>
+          {/* Structure guide */}
+          <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 shadow-xl">
+            <h3 className="text-sm font-bold text-white mb-3">Empfohlene Struktur</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-3 p-2 bg-gray-900 rounded-lg">
+                <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                <span className="text-gray-400">Einleitung — Thema vorstellen und Position klar machen</span>
+              </div>
+              <div className="flex items-center gap-3 p-2 bg-gray-900 rounded-lg">
+                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                <span className="text-gray-400">Hauptteil — 2-3 Argumente mit Begründung</span>
+              </div>
+              <div className="flex items-center gap-3 p-2 bg-gray-900 rounded-lg">
+                <span className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" />
+                <span className="text-gray-400">Beispiele — Konkrete Erfahrungen oder Fakten</span>
+              </div>
+              <div className="flex items-center gap-3 p-2 bg-gray-900 rounded-lg">
+                <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
+                <span className="text-gray-400">Schluss — Zusammenfassung und Ausblick</span>
+              </div>
             </div>
-          )}
-
-          <button
-            onClick={handleStartExam}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-900/30 text-lg"
-          >
-            <Mic size={24} />
-            Prüfung starten
-          </button>
+          </div>
         </div>
+
+        {/* Notes */}
+        <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 mb-6 shadow-xl">
+          <h3 className="text-sm font-bold text-white mb-4">Notizen & Stichpunkte</h3>
+          <textarea
+            value={prepNotes}
+            onChange={(e) => setPrepNotes(e.target.value)}
+            placeholder="Ihre Notizen (z.B. Argumente, Beispiele, wichtige Begriffe)..."
+            rows={5}
+            className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all resize-none text-sm mb-4"
+          />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-2">Stichwörter</p>
+              <input
+                value={prepKeywords}
+                onChange={(e) => setPrepKeywords(e.target.value)}
+                placeholder="z.B. Bildung, Zukunft, Chancen"
+                className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all text-sm"
+              />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-2">Gliederung</p>
+              <input
+                value={prepOutline}
+                onChange={(e) => setPrepOutline(e.target.value)}
+                placeholder="z.B. Einleitung → Argumente → Schluss"
+                className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            const notes: PreparationNotes = { notes: prepNotes, keywords: prepKeywords, outline: prepOutline };
+            if (sessionId) updateTelcPreparationNotes(sessionId, notes);
+            handleStartExam();
+          }}
+          className="w-full bg-green-600 hover:bg-green-700 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-green-900/30 text-lg"
+        >
+          <Mic size={24} />
+          Präsentation starten
+        </button>
       </div>
     );
   }
@@ -780,6 +938,26 @@ export default function TelcExam() {
             </div>
           )}
         </div>
+
+        {/* Notes Panel */}
+        {prepNotes && (
+          <div className="bg-gray-950 border border-yellow-500/20 rounded-2xl mb-6 shadow-xl overflow-hidden">
+            <button
+              onClick={() => setStructureOpen(!structureOpen)}
+              className="w-full flex items-center justify-between p-4 hover:bg-gray-900 transition-colors"
+            >
+              <span className="text-sm font-bold text-yellow-500">Notizen <span className="text-gray-500 font-normal">(nur als Stütze)</span></span>
+              {structureOpen ? <ChevronUp size={18} className="text-gray-500" /> : <ChevronDown size={18} className="text-gray-500" />}
+            </button>
+            {structureOpen && (
+              <div className="px-4 pb-4">
+                <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{prepNotes}</p>
+                {prepKeywords && <p className="text-xs text-gray-500 mt-2">Stichwörter: {prepKeywords}</p>}
+                {prepOutline && <p className="text-xs text-gray-500">Gliederung: {prepOutline}</p>}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Live Stats */}
         <div className="flex gap-4 mb-6">
@@ -933,6 +1111,15 @@ export default function TelcExam() {
               <div className="space-y-3">
                 {telcSettings.aiEnabled && telcSettings.apiKey && (
                   <button
+                    onClick={handleShowQuestions}
+                    className="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-cyan-900/20"
+                  >
+                    <HelpCircle size={20} />
+                    Verständnisfragen
+                  </button>
+                )}
+                {telcSettings.aiEnabled && telcSettings.apiKey && (
+                  <button
                     onClick={handleStartDiscussion}
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/20"
                   >
@@ -961,6 +1148,138 @@ export default function TelcExam() {
             </div>
           )}
         </div>
+      </div>
+    );
+  }
+
+  // Questions phase
+  if (phase === 'questions') {
+    return (
+      <div className="max-w-2xl mx-auto pb-20">
+        <PageHeader title="TELC C1 — Verständnisfragen" showBack />
+        <div className="bg-gradient-to-br from-cyan-600/10 to-blue-600/10 border border-cyan-500/20 rounded-3xl p-6 mb-6 shadow-xl">
+          <div className="flex items-center gap-3 mb-2">
+            <HelpCircle size={24} className="text-cyan-500" />
+            <h2 className="text-xl font-black text-white">Verständnisfragen zur Präsentation</h2>
+          </div>
+          <p className="text-gray-400 text-sm">Beantworten Sie die Fragen des Prüfers zu Ihrer Präsentation.</p>
+        </div>
+
+        {presQuestions.length > 0 ? (
+          <div className="space-y-4 mb-6">
+            {presQuestions.map((q, idx) => (
+              <div key={idx} className="bg-gray-950 border border-gray-900 rounded-2xl p-5 shadow-xl">
+                <p className="text-white font-bold mb-3 text-sm">{idx + 1}. {q}</p>
+                <textarea
+                  value={presAnswers[idx] || ''}
+                  onChange={(e) => {
+                    const newAnswers = [...presAnswers];
+                    newAnswers[idx] = e.target.value;
+                    setPresAnswers(newAnswers);
+                  }}
+                  placeholder="Ihre Antwort..."
+                  rows={2}
+                  className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all resize-none text-sm"
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-gray-950 border border-gray-900 rounded-2xl p-8 text-center mb-6">
+            <Loader2 size={24} className="animate-spin text-cyan-500 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm">Fragen werden geladen...</p>
+          </div>
+        )}
+
+        <button
+          onClick={() => {
+            const pq: PresentationQuestion[] = presQuestions.map((q, i) => ({
+              question: q,
+              answer: presAnswers[i] || '',
+            }));
+            if (sessionId) updateTelcPresentationQuestions(sessionId, pq);
+            setPhase('discussion-statement');
+          }}
+          className="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-cyan-900/30 text-lg"
+        >
+          <ArrowRight size={24} />
+          Weiter zur Diskussion
+        </button>
+      </div>
+    );
+  }
+
+  // Discussion statement phase
+  if (phase === 'discussion-statement') {
+    return (
+      <div className="max-w-2xl mx-auto pb-20">
+        <PageHeader title="TELC C1 — Diskussionsthema" showBack />
+        <div className="bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border border-indigo-500/20 rounded-3xl p-8 shadow-xl mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <MessageCircle size={24} className="text-indigo-500" />
+            <h2 className="text-xl font-black text-white">Diskussion</h2>
+          </div>
+          <p className="text-gray-400 text-sm mb-6">Wählen Sie eine Diskussionsthese aus oder geben Sie eine eigene ein. Der Prüfer wird mit Ihnen darüber diskutieren.</p>
+
+          <div className="mb-6">
+            <p className="text-xs font-bold text-gray-500 mb-3">Vorgeschlagene Themen:</p>
+            <div className="space-y-2">
+              {TELC_DISCUSSION_STATEMENTS.slice(0, 6).map((stmt, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setDiscussionStatement(stmt)}
+                  className={cn(
+                    "w-full text-left p-3 rounded-xl border text-sm transition-all",
+                    discussionStatement === stmt
+                      ? "border-indigo-500/50 bg-indigo-500/10 text-white"
+                      : "border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700"
+                  )}
+                >
+                  {stmt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-bold text-gray-500 mb-2">Eigenes Thema:</p>
+            <textarea
+              value={discussionStatementCustom}
+              onChange={(e) => {
+                setDiscussionStatementCustom(e.target.value);
+                setDiscussionStatement(e.target.value);
+              }}
+              placeholder="Geben Sie hier Ihr Thema ein..."
+              rows={2}
+              className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none text-sm mb-3"
+            />
+          </div>
+        </div>
+
+        <div className="bg-gray-950 border border-gray-900 rounded-2xl p-6 mb-6 shadow-xl">
+          <p className="text-xs font-bold text-gray-500 mb-3">Diskussionsaufgaben (festgelegt):</p>
+          <div className="space-y-2">
+            {TELC_DISCUSSION_TASKS.map((task, idx) => (
+              <div key={idx} className="flex items-start gap-3 p-3 bg-gray-900 rounded-xl">
+                <span className="text-indigo-500 font-bold text-sm mt-0.5">{idx + 1}</span>
+                <p className="text-gray-300 text-sm">{task.replace(/^\d+\.\s*/, '')}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            const stmt = discussionStatement || 'Diskussion über das Präsentationsthema';
+            if (sessionId) updateTelcDiscussionStatement(sessionId, stmt);
+            setPhase('discussion');
+          }}
+          disabled={!discussionStatement && !discussionStatementCustom}
+          className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/30 text-lg"
+        >
+          <MessageCircle size={24} />
+          Diskussion starten
+        </button>
       </div>
     );
   }

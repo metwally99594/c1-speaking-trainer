@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, TelcSettings, TelcExamSession, TelcEvaluation, FollowUpQA, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DiscussionPerformance, DurationEvaluation } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, TelcSettings, TelcExamSession, TelcEvaluation, FollowUpQA, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DiscussionPerformance, DurationEvaluation, PreparationNotes, PresentationQuestion, DiscussionManagementScore, DiscussionTurn, AIPresentationSession } from '../models/types';
 import type { ComparedWord } from '../utils/accuracyEngine';
 
 interface TopicState {
@@ -19,6 +19,17 @@ interface TopicState {
   updateTelcSummaryFeedback: (sessionId: string, feedback: SummaryFeedback) => void;
   updateTelcDurationEvaluation: (sessionId: string, de: DurationEvaluation) => void;
   updateTelcDiscussionPerformance: (sessionId: string, dp: DiscussionPerformance) => void;
+  updateTelcPreparationNotes: (sessionId: string, notes: PreparationNotes) => void;
+  updateTelcPresentationQuestions: (sessionId: string, qa: PresentationQuestion[]) => void;
+  updateTelcDiscussionStatement: (sessionId: string, statement: string) => void;
+  updateTelcDiscussionManagementScore: (sessionId: string, score: DiscussionManagementScore) => void;
+  updateTelcDiscussionTurns: (sessionId: string, turns: DiscussionTurn[]) => void;
+  // Reverse role (AI presentation mode)
+  aiPresentationHistory: AIPresentationSession[];
+  addAIPresentationSession: (session: AIPresentationSession) => void;
+  updateAIPresentationSummary: (sessionId: string, summary: string) => void;
+  updateAIPresentationSummaryEval: (sessionId: string, evaluation: AIPresentationSession['summaryEvaluation']) => void;
+  updateAIPresentationFollowUp: (sessionId: string, qa: FollowUpQA[]) => void;
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
@@ -63,6 +74,7 @@ export const useTopicStore = create<TopicState>()(
       },
       telcHistory: [],
       telcFeedback: [],
+      aiPresentationHistory: [],
       addTelcFeedback: (feedback) => {
         set((state) => ({ telcFeedback: [feedback, ...state.telcFeedback] }));
       },
@@ -106,6 +118,66 @@ export const useTopicStore = create<TopicState>()(
         set((state) => ({
           telcHistory: state.telcHistory.map((s) =>
             s.id === sessionId ? { ...s, discussionPerformance: dp } : s
+          ),
+        }));
+      },
+      updateTelcPreparationNotes: (sessionId, notes) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, preparationNotes: notes } : s
+          ),
+        }));
+      },
+      updateTelcPresentationQuestions: (sessionId, qa) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, presentationQuestions: qa } : s
+          ),
+        }));
+      },
+      updateTelcDiscussionStatement: (sessionId, statement) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, discussionStatement: statement } : s
+          ),
+        }));
+      },
+      updateTelcDiscussionManagementScore: (sessionId, score) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, discussionManagementScore: score } : s
+          ),
+        }));
+      },
+      updateTelcDiscussionTurns: (sessionId, turns) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, discussionTurns: turns } : s
+          ),
+        }));
+      },
+      // Reverse role (AI presentation mode)
+      addAIPresentationSession: (session) => {
+        set((state) => ({ aiPresentationHistory: [session, ...state.aiPresentationHistory] }));
+      },
+      updateAIPresentationSummary: (sessionId, summary) => {
+        set((state) => ({
+          aiPresentationHistory: state.aiPresentationHistory.map((s) =>
+            s.id === sessionId ? { ...s, userSummary: summary } : s
+          ),
+        }));
+      },
+      updateAIPresentationSummaryEval: (sessionId, evalData) => {
+        set((state) => ({
+          aiPresentationHistory: state.aiPresentationHistory.map((s) =>
+            s.id === sessionId ? { ...s, summaryEvaluation: evalData } : s
+          ),
+        }));
+      },
+      updateAIPresentationFollowUp: (sessionId, qa) => {
+        set((state) => ({
+          aiPresentationHistory: state.aiPresentationHistory.map((s) =>
+            s.id === sessionId ? { ...s, followUpQA: qa } : s
           ),
         }));
       },

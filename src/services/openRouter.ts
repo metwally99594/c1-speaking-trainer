@@ -241,51 +241,116 @@ Return a JSON object (no markdown, no code fences) with key "summary" containing
   });
 }
 
+export async function generatePresentationQuestions(
+  config: OpenRouterConfig,
+  topic: string,
+  transcript: string
+): Promise<string> {
+  const systemPrompt = `You are a TELC C1 examiner. Based on the candidate's presentation, generate 2-3 natural follow-up questions in German.
+
+Questions should be specific to the presentation content, not generic.
+
+Examples:
+- Können Sie das genauer erklären?
+- Warum vertreten Sie diese Meinung?
+- Haben Sie konkrete Beispiele?
+- Wie ist die Situation in Ihrem Heimatland?
+- Was meinen Sie mit ...?
+- Könnten Sie Ihren Standpunkt näher erläutern?
+
+Return a JSON object (no markdown, no code fences) with key "questions" containing an array of strings.`;
+
+  const userPrompt = `Topic: ${topic}\n\nPresentation transcript: ${transcript}`;
+
+  return makeRequest(config, {
+    model: config.model || DEFAULT_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.5,
+    max_tokens: 500,
+  });
+}
+
+export async function generateDiscussionStatement(): Promise<string> {
+  const statements = [
+    'Fernsehen ist reine Zeitverschwendung.',
+    'Erfolg ist planbar.',
+    'Universitätsbildung sollte kostenlos sein.',
+    'Soziale Medien richten mehr Schaden als Nutzen an.',
+    'Tierversuche sollten komplett verboten werden.',
+    'Homeoffice sollte zur Regel werden.',
+    'Künstliche Intelligenz gefährdet Arbeitsplätze.',
+    'Das deutsche Bildungssystem braucht eine grundlegende Reform.',
+    'Kernenergie ist eine sinnvolle Alternative zu fossilen Brennstoffen.',
+    'Die Schuldenbremse sollte abgeschafft werden.',
+    'Ein bedingungsloses Grundeinkommen wäre sinnvoll.',
+    'Die Legalisierung von Cannabis war ein Fehler.',
+    'Impfungen sollten verpflichtend sein.',
+    'Deutschland sollte mehr in die Bundeswehr investieren.',
+    'Die 4-Tage-Woche sollte eingeführt werden.',
+    'Tempolimit auf Autobahnen ist überfällig.',
+    'Private Krankenversicherungen sollten abgeschafft werden.',
+    'Studieren sollte nur mit Abitur erlaubt sein.',
+    'Rauchen in der Öffentlichkeit sollte verboten werden.',
+    'Die Rente mit 67 ist ein Fehler.',
+  ];
+
+  const randomStatement = statements[Math.floor(Math.random() * statements.length)];
+
+  return JSON.stringify({ statement: randomStatement });
+}
+
 export async function generateDiscussionResponse(
   config: OpenRouterConfig,
   topic: string,
   transcript: string,
   discussionTurns: { role: string; text: string }[],
-  turnIndex: number
+  turnIndex: number,
+  discussionStatement?: string
 ): Promise<string> {
-  const totalTurns = 5;
+  const totalTurns = 6;
   const isLastTurn = turnIndex >= totalTurns - 1;
 
   const discussionHistory = discussionTurns
-    .map((t) => `${t.role === 'examiner' ? 'Examiner' : 'Candidate'}: ${t.text}`)
+    .map((t) => `${t.role === 'partner_a' || t.role === 'candidate' ? 'Teilnehmer A (Sie)' : 'Teilnehmer B (KI)'}: ${t.text}`)
     .join('\n');
 
-  const interruptionInstruction = `REALISTIC EXAMINER BEHAVIOR: About 20-30% of the time, the examiner should interrupt naturally like a real examiner would. Use interruptions like:
-- "Entschuldigung, aber ich sehe das anders."
-- "Könnten Sie das genauer erklären?"
-- "Darf ich kurz einhaken?"
-- "Das überzeugt mich noch nicht."
-- "Moment, das möchte ich kurz hinterfragen."
-- "Da bin ich anderer Meinung. Können Sie das begründen?"
+  const statementSection = discussionStatement
+    ? `\n\nDiscussion statement (These): "${discussionStatement}"\n\nYou are Teilnehmer B. Your task is to discuss this statement with the candidate (Teilnehmer A). You must take a clear position (agree or disagree) and maintain it consistently throughout the discussion.`
+    : '';
 
-If you interrupt, also follow up with a question or challenge. Do NOT interrupt on the last turn.`;
-
-  const systemPrompt = `You are an official TELC C1 examiner conducting an interactive discussion.
-
-The candidate has just given a presentation on the topic. Now you are having a discussion with them.
+  const systemPrompt = `You are Teilnehmer B in a TELC C1 discussion. This is NOT an examiner interview. You are a discussion partner, like a fellow candidate.${statementSection}
 
 ${
   isLastTurn
     ? 'This is your LAST turn. Wrap up the discussion naturally and signal that the discussion phase is complete.'
-    : 'Ask a relevant follow-up question or challenge based on what the candidate said. Relate your question to the specific topic and the candidate\'s arguments.'
+    : 'Discuss the statement with the candidate. React to what they said.'
 }
 
-Rules:
-- Questions MUST be related to the specific topic, not generic
-- Challenge the candidate's views where appropriate
-- Ask for examples, counterarguments, or personal experience
-- Respond naturally as an examiner would
-- Keep responses concise (1-2 sentences)
-- Speak in German
-${!isLastTurn ? interruptionInstruction : ''}
-Return a JSON object (no markdown, no code fences) with key "response" containing your examiner message.`;
+RULES FOR REAL DISCUSSION BEHAVIOR:
+- DEFEND your opinion consistently — keep the same position throughout
+- CHALLENGE weak arguments from the other participant
+- REACT to what the other person said specifically
+- PROVIDE counterarguments
+- ASK for clarification or examples
+- Use natural discussion language:
+  • "Da stimme ich Ihnen nicht zu."
+  • "Das überzeugt mich noch nicht."
+  • "Könnten Sie dafür ein Beispiel nennen?"
+  • "Ich sehe das anders."
+  • "Darf ich kurz einhaken?"
+  • "Da stimme ich Ihnen zu, aber ..."
+  • "Ich verstehe Ihren Punkt, allerdings ..."
+  • "Ein wichtiger Aspekt, den Sie übersehen, ist ..."
+- Interrupt naturally about 20-30% of the time
+- Keep responses concise (1-3 sentences)
+- Speak in German throughout
 
-  const userPrompt = `Topic: ${topic}\n\nCandidate's presentation: ${transcript}\n\nDiscussion so far:\n${discussionHistory || 'No discussion yet.'}\n\nTurn ${turnIndex + 1} of ${totalTurns}: Provide your examiner response.`;
+This must feel like two candidates discussing, NOT an examiner asking questions.`;
+
+  const userPrompt = `Topic: ${topic}\n\nCandidate's presentation: ${transcript}\n\nDiscussion so far:\n${discussionHistory || 'No discussion yet.'}\n\nTurn ${turnIndex + 1} of ${totalTurns}: Provide your response as Teilnehmer B.`;
 
   return makeRequest(config, {
     model: config.model || DEFAULT_MODEL,
@@ -295,6 +360,67 @@ Return a JSON object (no markdown, no code fences) with key "response" containin
     ],
     temperature: 0.7,
     max_tokens: 300,
+  });
+}
+
+export async function generateAIPresentation(
+  config: OpenRouterConfig,
+  topic: string
+): Promise<string> {
+  const systemPrompt = `You are a TELC C1 candidate giving a short presentation in German.
+
+Generate a 2-3 minute presentation (about 200-300 words) on the given topic.
+
+The presentation should be suitable for C1 level:
+- Clear structure (Einleitung, Hauptteil, Schluss)
+- Good vocabulary and connectors
+- Well-reasoned arguments
+- Natural speaking style
+
+Return a JSON object (no markdown, no code fences) with key "presentation" containing the German text.`;
+
+  const userPrompt = `Topic: ${topic}\n\nGenerate a C1-level German presentation.`;
+
+  return makeRequest(config, {
+    model: config.model || DEFAULT_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.5,
+    max_tokens: 800,
+  });
+}
+
+export async function evaluateUserSummary(
+  config: OpenRouterConfig,
+  topic: string,
+  aiPresentation: string,
+  userSummary: string
+): Promise<string> {
+  const systemPrompt = `You are a TELC C1 examiner. Evaluate the user's summary of an AI presentation.
+
+The AI gave a presentation. The user summarized it.
+
+Evaluate:
+- completeness (how complete is the summary? 0-100)
+- accuracy (how accurate is the summary? 0-100)
+- clarity (how clear is the summary? 0-100)
+- grade: A/B/C/D
+- feedback: German feedback on what was good and what was missing
+
+Return a JSON object (no markdown, no code fences) with keys: grade, completeness (number), accuracy (number), clarity (number), feedback (string).`;
+
+  const userPrompt = `Presentation topic: ${topic}\n\nAI presentation: ${aiPresentation}\n\nUser summary: ${userSummary}`;
+
+  return makeRequest(config, {
+    model: config.model || DEFAULT_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 500,
   });
 }
 

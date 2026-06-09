@@ -90,9 +90,30 @@ export interface TelcEvaluation extends TelcGrade {
   };
 }
 
+export interface PreparationNotes {
+  notes: string;
+  keywords: string;
+  outline: string;
+}
+
 export interface DiscussionTurn {
-  role: 'examiner' | 'candidate';
+  role: 'examiner' | 'candidate' | 'partner_a' | 'partner_b';
   text: string;
+}
+
+export interface PresentationQuestion {
+  question: string;
+  answer: string;
+}
+
+export interface DiscussionManagementScore {
+  grade: 'A' | 'B' | 'C' | 'D';
+  agreement: boolean;
+  disagreement: boolean;
+  reactingToPartner: boolean;
+  defendingOpinions: boolean;
+  conversationManagement: boolean;
+  description: string;
 }
 
 export interface FollowUpQA {
@@ -193,4 +214,24 @@ export interface TelcExamSession {
   summaryFeedback?: SummaryFeedback;
   durationEvaluation?: DurationEvaluation;
   discussionPerformance?: DiscussionPerformance;
+  preparationNotes?: PreparationNotes;
+  presentationQuestions?: PresentationQuestion[];
+  discussionStatement?: string;
+  discussionManagementScore?: DiscussionManagementScore;
+}
+
+export interface AIPresentationSession {
+  id: string;
+  topic: string;
+  aiTranscript: string;
+  userSummary: string;
+  summaryEvaluation?: {
+    grade: 'A' | 'B' | 'C' | 'D';
+    completeness: number;
+    accuracy: number;
+    clarity: number;
+    feedback: string;
+  };
+  followUpQA: FollowUpQA[];
+  timestamp: number;
 }
