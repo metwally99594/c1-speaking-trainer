@@ -146,6 +146,78 @@ export default function TelcHistory() {
                     <AudioPlayer audioBlob={session.audioBlob} />
                   )}
 
+                  {/* AI Summary */}
+                  {session.aiSummary && (
+                    <div className="bg-cyan-900/10 border border-cyan-500/20 rounded-xl p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-500 mb-2">KI Zusammenfassung</p>
+                      <p className="text-sm text-gray-300">{session.aiSummary}</p>
+                      {session.summaryFeedback && (
+                        <p className="text-xs text-gray-600 mt-2">
+                          Feedback: <span className={cn(
+                            "font-bold",
+                            session.summaryFeedback === 'ja' ? 'text-green-400' :
+                            session.summaryFeedback === 'teilweise' ? 'text-yellow-400' : 'text-red-400'
+                          )}>
+                            {session.summaryFeedback === 'ja' ? 'Korrekt' :
+                             session.summaryFeedback === 'teilweise' ? 'Teilweise korrekt' : 'Nicht korrekt'}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Duration Evaluation */}
+                  {session.durationEvaluation && (
+                    <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock size={14} className="text-gray-500" />
+                          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Dauerbewertung</span>
+                        </div>
+                        <span className={cn(
+                          "text-xs font-bold",
+                          session.durationEvaluation.penalty === 'none' ? 'text-green-400' :
+                          session.durationEvaluation.penalty === 'acceptable' ? 'text-blue-400' :
+                          'text-yellow-400'
+                        )}>
+                          {session.durationEvaluation.label}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Discussion Performance */}
+                  {'discussionPerformance' in session && session.discussionPerformance && (
+                    <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">Diskussionsleistung</p>
+                        <span className={cn("text-lg font-black", getGradeColor(session.discussionPerformance.grade))}>
+                          {session.discussionPerformance.grade}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className={session.discussionPerformance.abilityToAnswer ? 'text-green-500' : 'text-gray-600'}>
+                            {session.discussionPerformance.abilityToAnswer ? '✓' : '✗'}
+                          </span>
+                          <span className="text-gray-400">Auf Einwände reagiert</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className={session.discussionPerformance.abilityToDefend ? 'text-green-500' : 'text-gray-600'}>
+                            {session.discussionPerformance.abilityToDefend ? '✓' : '✗'}
+                          </span>
+                          <span className="text-gray-400">Meinung verteidigt</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className={session.discussionPerformance.abilityToReact ? 'text-green-500' : 'text-gray-600'}>
+                            {session.discussionPerformance.abilityToReact ? '✓' : '✗'}
+                          </span>
+                          <span className="text-gray-400">Spontan reagiert</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Discussion Turns */}
                   {session.discussionTurns && session.discussionTurns.length > 0 && (
                     <details className="bg-gray-900 rounded-xl border border-gray-800">

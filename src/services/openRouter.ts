@@ -181,6 +181,19 @@ AI estimate based on transcript quality, recognition consistency, and word-level
 - C: Noticeable recognition issues. Multiple unclear segments in transcript suggesting pronunciation problems.
 - D: Significant recognition difficulties. Large portions unclear or unintelligible. Note: This is an AI estimate, not a certified assessment.
 
+DURATION EVALUATION (${duration}s): Duration affects aufgabengerechtheit and readinessScore.
+- < 90 seconds: strong penalty — too short for C1
+- 90-150 seconds: moderate penalty — slightly short
+- 150-210 seconds: ideal range — optimal C1 presentation length
+- 210-240 seconds: acceptable — slightly long but ok
+- > 240 seconds: slight penalty — too long
+
+DISCUSSION PERFORMANCE: Evaluate how well the candidate handled the interactive discussion.
+- abilityToAnswer: Did they answer objections directly?
+- abilityToDefend: Did they defend their opinions with reasoning?
+- abilityToReact: Did they react spontaneously and naturally?
+Grade A-D based on: A = handled objections well, defended clearly, spontaneous. D = could not answer objections, no defense, struggled.
+
 Also generate these additional fields:
 - estimatedPoints: number (0-100) — Overall score mapping: A average = 85-100, B average = 65-84, C average = 40-64, D average = 0-39
 - strengths: string[] (array in German)
@@ -189,6 +202,7 @@ Also generate these additional fields:
 - improvementSuggestions: string[] (practical German suggestions, e.g. "Use more connectors like 'darüber hinaus' and 'außerdem'", "Give concrete examples to support arguments", "Reduce repetition of 'gut' and 'wichtig'", "Use more complex sentence structures with subordinate clauses", "Structure your presentation with clear introduction and conclusion")
 - readinessScore: number (0-100) — Calibrated: 85-100 = Strong Pass, 65-84 = Pass, 0-64 = Borderline
 - likelyExamLevel: "Strong Pass" | "Pass" | "Borderline" — Must match readinessScore ranges above
+- discussionPerformance: { grade: "A"|"B"|"C"|"D", abilityToAnswer: boolean, abilityToDefend: boolean, abilityToReact: boolean, description: string }
 
 Return valid JSON only. No markdown, no code fences, no explanation outside JSON.`;
 
@@ -200,6 +214,30 @@ Return valid JSON only. No markdown, no code fences, no explanation outside JSON
     ],
     temperature: 0.3,
     max_tokens: 2000,
+  });
+}
+
+export async function generateAiSummary(
+  config: OpenRouterConfig,
+  topic: string,
+  transcript: string
+): Promise<string> {
+  const systemPrompt = `You are an official TELC C1 examiner. Summarize the candidate's presentation in 1-2 German sentences.
+
+Start with "Sie haben erklärt, dass" or "Sie haben dargelegt, dass" or "Sie haben ausgeführt, dass".
+
+Return a JSON object (no markdown, no code fences) with key "summary" containing the German summary string.`;
+
+  const userPrompt = `Topic: ${topic}\n\nPresentation transcript: ${transcript}`;
+
+  return makeRequest(config, {
+    model: config.model || DEFAULT_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.4,
+    max_tokens: 200,
   });
 }
 
@@ -216,6 +254,16 @@ export async function generateDiscussionResponse(
   const discussionHistory = discussionTurns
     .map((t) => `${t.role === 'examiner' ? 'Examiner' : 'Candidate'}: ${t.text}`)
     .join('\n');
+
+  const interruptionInstruction = `REALISTIC EXAMINER BEHAVIOR: About 20-30% of the time, the examiner should interrupt naturally like a real examiner would. Use interruptions like:
+- "Entschuldigung, aber ich sehe das anders."
+- "Könnten Sie das genauer erklären?"
+- "Darf ich kurz einhaken?"
+- "Das überzeugt mich noch nicht."
+- "Moment, das möchte ich kurz hinterfragen."
+- "Da bin ich anderer Meinung. Können Sie das begründen?"
+
+If you interrupt, also follow up with a question or challenge. Do NOT interrupt on the last turn.`;
 
   const systemPrompt = `You are an official TELC C1 examiner conducting an interactive discussion.
 
@@ -234,7 +282,7 @@ Rules:
 - Respond naturally as an examiner would
 - Keep responses concise (1-2 sentences)
 - Speak in German
-
+${!isLastTurn ? interruptionInstruction : ''}
 Return a JSON object (no markdown, no code fences) with key "response" containing your examiner message.`;
 
   const userPrompt = `Topic: ${topic}\n\nCandidate's presentation: ${transcript}\n\nDiscussion so far:\n${discussionHistory || 'No discussion yet.'}\n\nTurn ${turnIndex + 1} of ${totalTurns}: Provide your examiner response.`;
@@ -245,7 +293,7 @@ Return a JSON object (no markdown, no code fences) with key "response" containin
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    temperature: 0.6,
+    temperature: 0.7,
     max_tokens: 300,
   });
 }

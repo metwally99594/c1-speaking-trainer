@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, TelcSettings, TelcExamSession, TelcEvaluation, FollowUpQA, TelcFeedback, TelcLanguageAnalysis } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, TelcSettings, TelcExamSession, TelcEvaluation, FollowUpQA, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DiscussionPerformance, DurationEvaluation } from '../models/types';
 import type { ComparedWord } from '../utils/accuracyEngine';
 
 interface TopicState {
@@ -15,6 +15,10 @@ interface TopicState {
   addTelcFeedback: (feedback: TelcFeedback) => void;
   getCalibrationStats: () => { totalEvaluations: number; accurate: number; tooStrict: number; tooGenerous: number };
   updateTelcLanguageAnalysis: (sessionId: string, analysis: TelcLanguageAnalysis) => void;
+  updateTelcAiSummary: (sessionId: string, summary: string) => void;
+  updateTelcSummaryFeedback: (sessionId: string, feedback: SummaryFeedback) => void;
+  updateTelcDurationEvaluation: (sessionId: string, de: DurationEvaluation) => void;
+  updateTelcDiscussionPerformance: (sessionId: string, dp: DiscussionPerformance) => void;
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
@@ -74,6 +78,34 @@ export const useTopicStore = create<TopicState>()(
         set((state) => ({
           telcHistory: state.telcHistory.map((s) =>
             s.id === sessionId ? { ...s, languageAnalysis: analysis } : s
+          ),
+        }));
+      },
+      updateTelcAiSummary: (sessionId, summary) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, aiSummary: summary } : s
+          ),
+        }));
+      },
+      updateTelcSummaryFeedback: (sessionId, feedback) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, summaryFeedback: feedback } : s
+          ),
+        }));
+      },
+      updateTelcDurationEvaluation: (sessionId, de) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, durationEvaluation: de } : s
+          ),
+        }));
+      },
+      updateTelcDiscussionPerformance: (sessionId, dp) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, discussionPerformance: dp } : s
           ),
         }));
       },

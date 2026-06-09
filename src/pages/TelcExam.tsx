@@ -10,8 +10,8 @@ import {
   MessageCircle, Send
 } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, OpenRouterError } from '../services/openRouter';
-import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession, TelcFeedback, TelcLanguageAnalysis } from '../models/types';
+import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, generateAiSummary, OpenRouterError } from '../services/openRouter';
+import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DurationEvaluation } from '../models/types';
 import { analyzeRedemittel } from '../utils/redemittelAnalyzer';
 import { analyzeVocabulary } from '../utils/vocabularyAnalyzer';
 import { analyzeArgumentation } from '../utils/argumentationAnalyzer';
@@ -36,7 +36,7 @@ const TELC_TOPICS = [
 
 const TELC_DURATION = 180; // 3 minutes
 
-type Phase = 'topic-select' | 'preparation' | 'presentation' | 'completed' | 'discussion' | 'followup' | 'evaluating' | 'evaluation-done' | 'error';
+type Phase = 'topic-select' | 'preparation' | 'presentation' | 'completed' | 'summary' | 'discussion' | 'followup' | 'evaluating' | 'evaluation-done' | 'error';
 type TopicSource = 'existing' | 'custom' | 'random';
 
 export default function TelcExam() {
@@ -50,6 +50,10 @@ export default function TelcExam() {
   const updateTelcFollowUpQA = useTopicStore((state) => state.updateTelcFollowUpQA);
   const addTelcFeedback = useTopicStore((state) => state.addTelcFeedback);
   const updateTelcLanguageAnalysis = useTopicStore((state) => state.updateTelcLanguageAnalysis);
+  const updateTelcAiSummary = useTopicStore((state) => state.updateTelcAiSummary);
+  const updateTelcSummaryFeedback = useTopicStore((state) => state.updateTelcSummaryFeedback);
+  const updateTelcDurationEvaluation = useTopicStore((state) => state.updateTelcDurationEvaluation);
+  const updateTelcDiscussionPerformance = useTopicStore((state) => state.updateTelcDiscussionPerformance);
 
   // Derive initial state from URL param (Zustand loads synchronously from localStorage)
   const initialTopic = topicIdParam ? topics.find((t) => t.id === topicIdParam) : null;
@@ -97,6 +101,9 @@ export default function TelcExam() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [feedbackVote, setFeedbackVote] = useState<TelcFeedback['vote'] | null>(null);
   const [languageAnalysis, setLanguageAnalysis] = useState<TelcLanguageAnalysis | null>(null);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryFeedbackGiven, setSummaryFeedbackGiven] = useState(false);
 
   const startTimeRef = useRef(0);
   const transcriptRef = useRef('');
@@ -297,6 +304,15 @@ export default function TelcExam() {
       setEvaluation(parsed);
       updateTelcEvaluation(session.id, parsed);
 
+      // Store duration evaluation
+      const de = computeDurationEvaluation(elapsed);
+      updateTelcDurationEvaluation(session.id, de);
+
+      // Store discussion performance if present
+      if (parsed.discussionPerformance) {
+        updateTelcDiscussionPerformance(session.id, parsed.discussionPerformance);
+      }
+
       // Run language analysis
       const redemittel = analyzeRedemittel(session.transcript);
       const vocabulary = analyzeVocabulary(session.transcript);
@@ -364,6 +380,53 @@ export default function TelcExam() {
     }
 
     setPhase('evaluation-done');
+  };
+
+  const computeDurationEvaluation = (seconds: number): DurationEvaluation => {
+    if (seconds < 90) return { range: 'unter-90', label: 'Zu kurz (< 90 Sek.)', penalty: 'strong' };
+    if (seconds <= 150) return { range: '90-150', label: 'Etwas kurz (90–150 Sek.)', penalty: 'moderate' };
+    if (seconds <= 210) return { range: '150-210', label: 'Ideal (150–210 Sek.)', penalty: 'none' };
+    if (seconds <= 240) return { range: '210-240', label: 'Akzeptabel (210–240 Sek.)', penalty: 'acceptable' };
+    return { range: 'ueber-240', label: 'Zu lang (> 240 Sek.)', penalty: 'slight' };
+  };
+
+  const durationEval = computeDurationEvaluation(elapsed);
+  const durationPenaltyLabels: Record<string, { color: string; text: string }> = {
+    strong: { color: 'text-red-400', text: 'Starke Abwertung — zu kurz für C1 Niveau' },
+    moderate: { color: 'text-yellow-400', text: 'Moderate Abwertung — etwas kurz' },
+    none: { color: 'text-green-400', text: 'Ideale Länge — keine Abwertung' },
+    acceptable: { color: 'text-blue-400', text: 'Akzeptabel — geringe Abwertung' },
+    slight: { color: 'text-yellow-400', text: 'Leichte Abwertung — zu lang' },
+  };
+
+  const handleShowSummary = async () => {
+    setPhase('summary');
+    setSummaryLoading(true);
+    setAiSummary(null);
+    setSummaryFeedbackGiven(false);
+    try {
+      const result = await generateAiSummary(
+        { apiKey: telcSettings.apiKey, model: telcSettings.model },
+        topic,
+        transcriptRef.current.trim()
+      );
+      const clean = result.replace(/```(?:json)?\s*/gi, '').trim();
+      const parsed = JSON.parse(clean);
+      const summary = parsed.summary || parsed.text || '';
+      setAiSummary(summary);
+      if (sessionId && summary) {
+        updateTelcAiSummary(sessionId, summary);
+      }
+    } catch {
+      setAiSummary('Zusammenfassung konnte nicht generiert werden.');
+    }
+    setSummaryLoading(false);
+  };
+
+  const handleSummaryFeedback = (feedback: SummaryFeedback) => {
+    if (summaryFeedbackGiven || !sessionId) return;
+    setSummaryFeedbackGiven(true);
+    updateTelcSummaryFeedback(sessionId, feedback);
   };
 
   const handleStartDiscussion = async () => {
@@ -788,6 +851,14 @@ export default function TelcExam() {
           </div>
           <div className="space-y-4">
             <button
+              onClick={handleShowSummary}
+              disabled={!telcSettings.aiEnabled || !telcSettings.apiKey}
+              className="w-full bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-cyan-900/20"
+            >
+              <BookOpen size={20} />
+              Zusammenfassung anzeigen
+            </button>
+            <button
               onClick={handleStartDiscussion}
               disabled={!telcSettings.aiEnabled || !telcSettings.apiKey}
               className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/30 text-lg"
@@ -803,6 +874,92 @@ export default function TelcExam() {
               Direkt zur Auswertung
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Summary phase
+  if (phase === 'summary') {
+    return (
+      <div className="max-w-2xl mx-auto pb-20">
+        <PageHeader title="KI Zusammenfassung" showBack />
+        <div className="bg-gradient-to-br from-cyan-600/10 to-blue-600/10 border border-cyan-500/20 rounded-3xl p-8 shadow-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <BookOpen size={24} className="text-cyan-500" />
+            <h2 className="text-xl font-black text-white">Zusammenfassung Ihrer Präsentation</h2>
+          </div>
+
+          {summaryLoading ? (
+            <div className="flex items-center gap-3 text-gray-400 py-8 justify-center">
+              <Loader2 size={20} className="animate-spin text-cyan-500" />
+              <span>Zusammenfassung wird erstellt...</span>
+            </div>
+          ) : aiSummary ? (
+            <>
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
+                <p className="text-sm font-bold text-gray-500 mb-3">KI Zusammenfassung:</p>
+                <p className="text-gray-200 leading-relaxed">{aiSummary}</p>
+              </div>
+
+              {!summaryFeedbackGiven ? (
+                <>
+                  <p className="text-sm font-bold text-gray-400 mb-4 text-center">War diese Zusammenfassung korrekt?</p>
+                  <div className="flex gap-3 justify-center mb-6">
+                    <button
+                      onClick={() => handleSummaryFeedback('ja')}
+                      className="px-6 py-3 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/30 rounded-xl font-bold text-sm transition-all"
+                    >
+                      Ja
+                    </button>
+                    <button
+                      onClick={() => handleSummaryFeedback('teilweise')}
+                      className="px-6 py-3 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-500/30 rounded-xl font-bold text-sm transition-all"
+                    >
+                      Teilweise
+                    </button>
+                    <button
+                      onClick={() => handleSummaryFeedback('nein')}
+                      className="px-6 py-3 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 rounded-xl font-bold text-sm transition-all"
+                    >
+                      Nein
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-center text-sm text-gray-600 mb-6">Danke für Ihr Feedback!</p>
+              )}
+
+              <div className="space-y-3">
+                {telcSettings.aiEnabled && telcSettings.apiKey && (
+                  <button
+                    onClick={handleStartDiscussion}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/20"
+                  >
+                    <MessageCircle size={20} />
+                    Zur Diskussion
+                  </button>
+                )}
+                <button
+                  onClick={handleRunEvaluation}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-900/20"
+                >
+                  <MessageSquare size={20} />
+                  Zur Auswertung
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-600">Zusammenfassung konnte nicht geladen werden.</p>
+              <button
+                onClick={handleShowSummary}
+                className="mt-4 px-6 py-3 bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 rounded-xl font-bold text-sm"
+              >
+                Erneut versuchen
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1090,6 +1247,58 @@ export default function TelcExam() {
           <span className="text-3xl font-black text-white">{evaluation.estimatedPoints}/100</span>
         </div>
       </div>
+
+      {/* Duration Evaluation */}
+      <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 mb-6 shadow-xl">
+        <h4 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
+          <Clock size={16} />
+          Präsentationsdauer
+        </h4>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-lg font-black text-white">{formatTime(elapsed)}</p>
+            <p className={cn("text-xs font-bold mt-1", durationPenaltyLabels[durationEval.penalty].color)}>
+              {durationEval.label}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className={cn("text-sm font-bold", durationPenaltyLabels[durationEval.penalty].color)}>
+              {durationPenaltyLabels[durationEval.penalty].text}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Discussion Performance */}
+      {'discussionPerformance' in evaluation && evaluation.discussionPerformance && (
+        <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 mb-6 shadow-xl">
+          <h4 className="text-sm font-bold text-gray-400 mb-3 flex items-center gap-2">
+            <MessageCircle size={16} />
+            Diskussionsleistung
+          </h4>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-bold text-white">Gesamtbewertung</span>
+            <span className={cn("text-2xl font-black", getGradeColor(evaluation.discussionPerformance.grade))}>
+              {evaluation.discussionPerformance.grade}
+            </span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className={evaluation.discussionPerformance.abilityToAnswer ? 'text-green-500' : 'text-gray-600'} />
+              <span className="text-xs text-gray-400">Auf Einwände reagiert</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className={evaluation.discussionPerformance.abilityToDefend ? 'text-green-500' : 'text-gray-600'} />
+              <span className="text-xs text-gray-400">Meinung verteidigt</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className={evaluation.discussionPerformance.abilityToReact ? 'text-green-500' : 'text-gray-600'} />
+              <span className="text-xs text-gray-400">Spontan reagiert</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-600 mt-3">{evaluation.discussionPerformance.description}</p>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">

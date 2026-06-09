@@ -81,6 +81,13 @@ export interface TelcEvaluation extends TelcGrade {
   improvementSuggestions: string[];
   readinessScore: number;
   likelyExamLevel: 'Strong Pass' | 'Pass' | 'Borderline';
+  discussionPerformance?: {
+    grade: 'A' | 'B' | 'C' | 'D';
+    abilityToAnswer: boolean;
+    abilityToDefend: boolean;
+    abilityToReact: boolean;
+    description: string;
+  };
 }
 
 export interface DiscussionTurn {
@@ -152,6 +159,22 @@ export interface TelcLanguageAnalysis {
   argumentation: ArgumentationResult;
 }
 
+export type SummaryFeedback = 'ja' | 'teilweise' | 'nein';
+
+export interface DurationEvaluation {
+  range: 'unter-90' | '90-150' | '150-210' | '210-240' | 'ueber-240';
+  label: string;
+  penalty: 'strong' | 'moderate' | 'none' | 'acceptable' | 'slight';
+}
+
+export interface DiscussionPerformance {
+  grade: 'A' | 'B' | 'C' | 'D';
+  abilityToAnswer: boolean;
+  abilityToDefend: boolean;
+  abilityToReact: boolean;
+  description: string;
+}
+
 export interface TelcExamSession {
   id: string;
   topic: string;
@@ -166,4 +189,8 @@ export interface TelcExamSession {
   aiAvailable: boolean;
   audioBlob?: string;
   languageAnalysis?: TelcLanguageAnalysis;
+  aiSummary?: string;
+  summaryFeedback?: SummaryFeedback;
+  durationEvaluation?: DurationEvaluation;
+  discussionPerformance?: DiscussionPerformance;
 }
