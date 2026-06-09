@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, TelcSettings, TelcExamSession, TelcEvaluation, FollowUpQA } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, TelcSettings, TelcExamSession, TelcEvaluation, FollowUpQA, TelcFeedback, TelcLanguageAnalysis } from '../models/types';
 import type { ComparedWord } from '../utils/accuracyEngine';
 
 interface TopicState {
@@ -11,6 +11,10 @@ interface TopicState {
   sentenceChunks: Record<string, ChunkData[]>;
   telcSettings: TelcSettings;
   telcHistory: TelcExamSession[];
+  telcFeedback: TelcFeedback[];
+  addTelcFeedback: (feedback: TelcFeedback) => void;
+  getCalibrationStats: () => { totalEvaluations: number; accurate: number; tooStrict: number; tooGenerous: number };
+  updateTelcLanguageAnalysis: (sessionId: string, analysis: TelcLanguageAnalysis) => void;
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
@@ -54,6 +58,25 @@ export const useTopicStore = create<TopicState>()(
         model: 'google/gemini-2.5-flash',
       },
       telcHistory: [],
+      telcFeedback: [],
+      addTelcFeedback: (feedback) => {
+        set((state) => ({ telcFeedback: [feedback, ...state.telcFeedback] }));
+      },
+      getCalibrationStats: () => {
+        const feedback = get().telcFeedback;
+        const totalEvaluations = get().telcHistory.filter((s) => s.evaluation !== null).length;
+        const accurate = feedback.filter((f) => f.vote === 'accurate').length;
+        const tooStrict = feedback.filter((f) => f.vote === 'too-strict').length;
+        const tooGenerous = feedback.filter((f) => f.vote === 'too-generous').length;
+        return { totalEvaluations, accurate, tooStrict, tooGenerous };
+      },
+      updateTelcLanguageAnalysis: (sessionId, analysis) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, languageAnalysis: analysis } : s
+          ),
+        }));
+      },
       addTopic: (topicData, sentences) => {
         const newTopic: Topic = {
           ...topicData,

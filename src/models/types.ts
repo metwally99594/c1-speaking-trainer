@@ -93,6 +93,65 @@ export interface FollowUpQA {
   answer: string;
 }
 
+// --- Evaluation Feedback & Calibration ---
+
+export type TelcFeedbackVote = 'accurate' | 'too-strict' | 'too-generous';
+
+export interface TelcFeedback {
+  sessionId: string;
+  vote: TelcFeedbackVote;
+  timestamp: number;
+}
+
+export interface CalibrationStats {
+  totalEvaluations: number;
+  accurate: number;
+  tooStrict: number;
+  tooGenerous: number;
+}
+
+// --- Language Analysis Results ---
+
+export interface ConnectorMatch {
+  connector: string;
+  count: number;
+}
+
+export interface RedemittelResult {
+  totalConnectors: number;
+  uniqueConnectors: number;
+  matches: ConnectorMatch[];
+  score: 'A' | 'B' | 'C' | 'D';
+  levelEstimation: string;
+}
+
+export interface VocabularyResult {
+  uniqueWords: number;
+  totalWords: number;
+  diversity: number;
+  advancedCount: number;
+  overusedWords: { word: string; count: number }[];
+  basicWords: { word: string; count: number }[];
+  level: 'A' | 'B' | 'C' | 'D';
+}
+
+export interface ArgumentationResult {
+  hasExamples: boolean;
+  hasJustification: boolean;
+  hasCounterarguments: boolean;
+  hasConclusion: boolean;
+  patternsFound: string[];
+  score: 'A' | 'B' | 'C' | 'D';
+}
+
+// --- Language Analysis (stored per session) ---
+
+export interface TelcLanguageAnalysis {
+  redemittel: RedemittelResult;
+  vocabulary: VocabularyResult;
+  argumentation: ArgumentationResult;
+}
+
 export interface TelcExamSession {
   id: string;
   topic: string;
@@ -106,4 +165,5 @@ export interface TelcExamSession {
   evaluation: TelcEvaluation | null;
   aiAvailable: boolean;
   audioBlob?: string;
+  languageAnalysis?: TelcLanguageAnalysis;
 }

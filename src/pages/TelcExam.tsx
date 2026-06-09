@@ -11,7 +11,10 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, OpenRouterError } from '../services/openRouter';
-import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession } from '../models/types';
+import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession, TelcFeedback, TelcLanguageAnalysis } from '../models/types';
+import { analyzeRedemittel } from '../utils/redemittelAnalyzer';
+import { analyzeVocabulary } from '../utils/vocabularyAnalyzer';
+import { analyzeArgumentation } from '../utils/argumentationAnalyzer';
 
 const TELC_TOPICS = [
   'Welche Berufsgruppe halten Sie für besonders wichtig?',
@@ -45,6 +48,8 @@ export default function TelcExam() {
   const addTelcSession = useTopicStore((state) => state.addTelcSession);
   const updateTelcEvaluation = useTopicStore((state) => state.updateTelcEvaluation);
   const updateTelcFollowUpQA = useTopicStore((state) => state.updateTelcFollowUpQA);
+  const addTelcFeedback = useTopicStore((state) => state.addTelcFeedback);
+  const updateTelcLanguageAnalysis = useTopicStore((state) => state.updateTelcLanguageAnalysis);
 
   // Derive initial state from URL param (Zustand loads synchronously from localStorage)
   const initialTopic = topicIdParam ? topics.find((t) => t.id === topicIdParam) : null;
@@ -90,6 +95,8 @@ export default function TelcExam() {
   const [evaluation, setEvaluation] = useState<TelcEvaluation | null>(null);
   const [aiError, setAiError] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [feedbackVote, setFeedbackVote] = useState<TelcFeedback['vote'] | null>(null);
+  const [languageAnalysis, setLanguageAnalysis] = useState<TelcLanguageAnalysis | null>(null);
 
   const startTimeRef = useRef(0);
   const transcriptRef = useRef('');
@@ -290,6 +297,14 @@ export default function TelcExam() {
       setEvaluation(parsed);
       updateTelcEvaluation(session.id, parsed);
 
+      // Run language analysis
+      const redemittel = analyzeRedemittel(session.transcript);
+      const vocabulary = analyzeVocabulary(session.transcript);
+      const argumentation = analyzeArgumentation(session.transcript);
+      const analysis: TelcLanguageAnalysis = { redemittel, vocabulary, argumentation };
+      setLanguageAnalysis(analysis);
+      updateTelcLanguageAnalysis(session.id, analysis);
+
       // Generate follow-up questions
       try {
         const questionsResult = await generateFollowUpQuestions(
@@ -400,6 +415,12 @@ export default function TelcExam() {
     }
 
     await generateNextDiscussionTurn(updated);
+  };
+
+  const handleFeedback = (vote: TelcFeedback['vote']) => {
+    if (feedbackVote || !sessionId) return;
+    setFeedbackVote(vote);
+    addTelcFeedback({ sessionId, vote, timestamp: Date.now() });
   };
 
   const handleSkipDiscussion = () => {
@@ -1151,6 +1172,189 @@ export default function TelcExam() {
             <li className="text-sm text-gray-600 italic">Keine Verbesserungsvorschläge</li>
           )}
         </ul>
+      </div>
+
+      {/* Language Analysis — Redemittel */}
+      {languageAnalysis && (
+        <div className="bg-gray-950 border border-gray-900 rounded-3xl p-8 mb-6 shadow-xl">
+          <h4 className="text-sm font-bold text-cyan-400 mb-4 flex items-center gap-2">
+            <BookOpen size={16} />
+            Redemittel Analyse
+          </h4>
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className="text-xl font-black text-white">{languageAnalysis.redemittel.totalConnectors}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Konnektoren</p>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className="text-xl font-black text-white">{languageAnalysis.redemittel.uniqueConnectors}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Einzigartige</p>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className={cn("text-xl font-black", getGradeColor(languageAnalysis.redemittel.score))}>{languageAnalysis.redemittel.score}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Niveau</p>
+            </div>
+          </div>
+          {languageAnalysis.redemittel.matches.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {languageAnalysis.redemittel.matches.slice(0, 8).map((m) => (
+                <span key={m.connector} className="text-xs bg-cyan-600/10 text-cyan-400 border border-cyan-500/20 px-3 py-1 rounded-full">
+                  {m.connector} ({m.count})
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-gray-500">{languageAnalysis.redemittel.levelEstimation}</p>
+        </div>
+      )}
+
+      {/* Language Analysis — Vocabulary */}
+      {languageAnalysis && (
+        <div className="bg-gray-950 border border-gray-900 rounded-3xl p-8 mb-6 shadow-xl">
+          <h4 className="text-sm font-bold text-orange-400 mb-4 flex items-center gap-2">
+            <BookOpen size={16} />
+            Wortschatz Analyse
+          </h4>
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className="text-xl font-black text-white">{languageAnalysis.vocabulary.uniqueWords}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Einzigartige Wörter</p>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className="text-xl font-black text-white">{(languageAnalysis.vocabulary.diversity * 100).toFixed(0)}%</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Diversität</p>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className={cn("text-xl font-black", getGradeColor(languageAnalysis.vocabulary.level))}>{languageAnalysis.vocabulary.level}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Niveau</p>
+            </div>
+          </div>
+          {languageAnalysis.vocabulary.advancedCount > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-bold text-gray-500 mb-1">Fortgeschrittene Vokabeln: {languageAnalysis.vocabulary.advancedCount}</p>
+            </div>
+          )}
+          {languageAnalysis.vocabulary.basicWords.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-bold text-gray-500 mb-1">Übermäßig genutzte Basisvokabeln:</p>
+              <div className="flex flex-wrap gap-2">
+                {languageAnalysis.vocabulary.basicWords.map((bw) => (
+                  <span key={bw.word} className="text-xs bg-yellow-600/10 text-yellow-400 border border-yellow-500/20 px-3 py-1 rounded-full">
+                    {bw.word} ({bw.count}x)
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {languageAnalysis.vocabulary.overusedWords.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-500 mb-1">Wiederholungen:</p>
+              <div className="flex flex-wrap gap-2">
+                {languageAnalysis.vocabulary.overusedWords.map((ow) => (
+                  <span key={ow.word} className="text-xs bg-red-600/10 text-red-400 border border-red-500/20 px-3 py-1 rounded-full">
+                    {ow.word} ({ow.count}x)
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Language Analysis — Argumentation */}
+      {languageAnalysis && (
+        <div className="bg-gray-950 border border-gray-900 rounded-3xl p-8 mb-6 shadow-xl">
+          <h4 className="text-sm font-bold text-green-400 mb-4 flex items-center gap-2">
+            <BookOpen size={16} />
+            Argumentationsanalyse
+          </h4>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className={cn("text-xl font-black", languageAnalysis.argumentation.hasExamples ? 'text-green-400' : 'text-gray-600')}>
+                {languageAnalysis.argumentation.hasExamples ? '✓' : '✗'}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Beispiele</p>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className={cn("text-xl font-black", languageAnalysis.argumentation.hasJustification ? 'text-green-400' : 'text-gray-600')}>
+                {languageAnalysis.argumentation.hasJustification ? '✓' : '✗'}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Begründung</p>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className={cn("text-xl font-black", languageAnalysis.argumentation.hasCounterarguments ? 'text-green-400' : 'text-gray-600')}>
+                {languageAnalysis.argumentation.hasCounterarguments ? '✓' : '✗'}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Gegenargumente</p>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-3 text-center border border-gray-800">
+              <p className={cn("text-xl font-black", languageAnalysis.argumentation.hasConclusion ? 'text-green-400' : 'text-gray-600')}>
+                {languageAnalysis.argumentation.hasConclusion ? '✓' : '✗'}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Fazit</p>
+            </div>
+          </div>
+          <div className="mb-3">
+            <p className="text-sm font-bold text-gray-400">
+              Argumentation: <span className={cn(getGradeColor(languageAnalysis.argumentation.score))}>{languageAnalysis.argumentation.score}</span>
+            </p>
+          </div>
+          {languageAnalysis.argumentation.patternsFound.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {languageAnalysis.argumentation.patternsFound.slice(0, 6).map((p) => (
+                <span key={p} className="text-xs bg-green-600/10 text-green-400 border border-green-500/20 px-3 py-1 rounded-full">
+                  {p}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Evaluation Feedback */}
+      <div className="bg-gray-950 border border-gray-900 rounded-3xl p-8 mb-6 shadow-xl">
+        <h4 className="text-sm font-bold text-gray-400 mb-4">War diese Bewertung hilfreich?</h4>
+        <div className="flex gap-4 justify-center">
+          <button
+            onClick={() => handleFeedback('accurate')}
+            disabled={feedbackVote !== null}
+            className={cn(
+              "flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all",
+              feedbackVote === 'accurate'
+                ? "bg-green-600/20 text-green-400 border border-green-500/30"
+                : "bg-gray-900 text-gray-400 border border-gray-800 hover:bg-gray-800 hover:text-white"
+            )}
+          >
+            👍 Accurate
+          </button>
+          <button
+            onClick={() => handleFeedback('too-strict')}
+            disabled={feedbackVote !== null}
+            className={cn(
+              "flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all",
+              feedbackVote === 'too-strict'
+                ? "bg-red-600/20 text-red-400 border border-red-500/30"
+                : "bg-gray-900 text-gray-400 border border-gray-800 hover:bg-gray-800 hover:text-white"
+            )}
+          >
+            👎 Zu streng
+          </button>
+          <button
+            onClick={() => handleFeedback('too-generous')}
+            disabled={feedbackVote !== null}
+            className={cn(
+              "flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all",
+              feedbackVote === 'too-generous'
+                ? "bg-yellow-600/20 text-yellow-400 border border-yellow-500/30"
+                : "bg-gray-900 text-gray-400 border border-gray-800 hover:bg-gray-800 hover:text-white"
+            )}
+          >
+            👎 Zu großzügig
+          </button>
+        </div>
+        {feedbackVote && (
+          <p className="text-center text-xs text-gray-600 mt-3">Danke für Ihr Feedback!</p>
+        )}
       </div>
 
       {/* Transcript */}

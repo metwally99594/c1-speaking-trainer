@@ -26,6 +26,9 @@ export function Layout({ children }: LayoutProps) {
               <AlertTriangle size={14} />
               Words
             </Link>
+            <Link to="/telc-calibration" className="flex items-center gap-1 text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
+              Calibration
+            </Link>
             <Link to="/settings" className="p-2 text-gray-500 hover:text-white transition-colors">
               <Settings size={20} />
             </Link>

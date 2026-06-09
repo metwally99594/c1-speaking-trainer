@@ -136,34 +136,61 @@ export async function evaluateTelcPresentation(
     ? `\n\nDiscussion transcript:\n${discussionTurns.map((t) => `${t.role === 'examiner' ? 'Examiner' : 'Candidate'}: ${t.text}`).join('\n')}`
     : '';
 
-  const systemPrompt = `You are an official TELC C1 examiner evaluating a German speaking exam.
-
-The candidate gave a presentation and then participated in an interactive discussion with the examiner.
-
-Evaluate BOTH the presentation AND discussion according to these official TELC C1 criteria and return a JSON object (no markdown, no code fences):
-
-1. aufgabengerechtheit (task completion): A/B/C/D — Did the user answer the topic? Was the presentation structured? Were examples provided? Was it coherent? How well did they handle the discussion?
-
-2. flüssigkeit (fluency): A/B/C/D — Natural flow, hesitation, long pauses, communication continuity. Use transcript and timing metrics (duration: ${duration}s, WPM: ${wpm}). Also assess discussion spontaneity.
-
-3. repertoire (range): A/B/C/D — Vocabulary range, variety of expressions, connectors (darüber hinaus, außerdem, einerseits, andererseits, folglich etc.), repetition. Assess both presentation and discussion.
-
-4. grammatischeRichtigkeit (grammatical accuracy): A/B/C/D — Sentence structure, verb placement, weil/dass clauses, tense usage, article usage.
-
-5. ausspracheUndIntonation (pronunciation and intonation): A/B/C/D — AI estimate based on transcript quality and recognition consistency. Note: This is an AI estimate, not a certified pronunciation score.
-
-Also generate:
-- estimatedPoints: number (0-100)
-- strengths: string[] (array of strengths in German, include discussion performance)
-- weaknesses: string[] (array of weaknesses in German, include discussion performance)
-- detailedFeedback: string (detailed feedback in German covering both presentation and discussion)
-- improvementSuggestions: string[] (array of practical improvement suggestions in German, e.g. "Use more connectors like 'darüber hinaus' and 'außerdem'", "Give more concrete examples", "Reduce repetition of the same words", "Improve sentence complexity with subordinate clauses")
-- readinessScore: number (0-100)
-- likelyExamLevel: "Strong Pass" | "Pass" | "Borderline"
-
-Return valid JSON with these exact keys (camelCase as shown).`;
-
   const userPrompt = `Topic: ${topic}\n\nPresentation transcript: ${transcript}\n\nDuration: ${duration} seconds\nSpeaking pace: ${wpm} WPM${discussionSection}`;
+
+  const systemPrompt = `You are an official TELC C1 examiner evaluating a German speaking exam. The candidate gave a presentation and then participated in an interactive discussion with the examiner.
+
+CALIBRATION INSTRUCTION: Use the FULL grading scale A-D. A = excellent C1+, B = solid C1, C = weak/passable C1, D = below C1. Do NOT inflate scores. Be honest and critical. A score of D does NOT mean failure — it means the candidate needs improvement in that area. Use D when criteria clearly are not at C1 level.
+
+Evaluate BOTH the presentation AND discussion according to these official TELC C1 criteria. Return a JSON object (no markdown, no code fences) with camelCase keys.
+
+CRITERION 1 — aufgabengerechtheit (Aufgabenbewältigung):
+How well does the candidate handle the task? Structure, relevance, coherence.
+- A: Excellent task handling. Clear structure (Einleitung, Hauptteil, Schluss). All aspects of the topic covered. Relevant examples and well-integrated discussion responses.
+- B: Good task handling. Mostly clear structure. Most aspects covered. Some examples. Discussion responses are relevant but could be deeper.
+- C: Adequate but incomplete. Loose structure. Some aspects missing or superficial. Few examples. Discussion responses are short or generic.
+- D: Weak. No clear structure. Topic barely addressed. No examples. Discussion responses are minimal or off-topic.
+
+CRITERION 2 — flüssigkeit (Sprechflüssigkeit):
+Natural flow, hesitation, pauses. Use WPM as an indicator.
+- A: Fluent and effortless. No hesitation. WPM 110-140+. Smooth discussion interaction.
+- B: Generally fluent with minor hesitation. WPM 95-109. Discussion has some pauses but continues naturally.
+- C: Noticeable hesitation and pauses. WPM 80-94. Discussion responses are slow or fragmented.
+- D: Frequent long pauses and stumbling. WPM below 80. Discussion is halting or struggles to continue.
+
+Current speaking pace: ${wpm} WPM, duration: ${duration}s. Adjust based on transcript fluency cues.
+
+CRITERION 3 — repertoire (Spektrum / Wortschatz & Ausdruck):
+Vocabulary range, variety of connectors, expression.
+- A: Broad vocabulary range. Uses multiple advanced connectors (darüber hinaus, außerdem, einerseits...andererseits, folglich, dennoch, demgegenüber, hingegen etc.). No significant repetition. C1+ level expression.
+- B: Good vocabulary. Uses some connectors (außerdem, zum Beispiel, also). Some variety but occasional repetition. Solid B2/C1.
+- C: Limited vocabulary. Few connectors (und, aber, auch). Noticeable repetition of basic words. Below C1 range.
+- D: Very limited vocabulary. Only basic connectors or none. Heavy repetition (gut, schlecht, wichtig, viel). Well below C1.
+
+CRITERION 4 — grammatischeRichtigkeit (Grammatikalische Korrektheit):
+Sentence structure, verb placement, subordinate clauses, articles, tenses.
+- A: Consistently correct grammar. Confident use of subordinate clauses (weil...dass, obwohl, wenn). Correct verb placement in main and subordinate clauses. Virtually no errors.
+- B: Mostly correct grammar. Some minor errors in complex structures. Generally correct verb placement. Errors do not impede understanding.
+- C: Frequent grammar errors. Problems with verb placement in Nebensätze. Article or tense errors noticeable. Errors sometimes impede clarity.
+- D: Pervasive grammar errors. Basic sentence structure problems. Verb placement frequently wrong. Errors significantly impede understanding.
+
+CRITERION 5 — ausspracheUndIntonation (Aussprache und Intonation):
+AI estimate based on transcript quality, recognition consistency, and word-level accuracy data.
+- A: Clear and confident. Recognition was consistent with no corrections needed.
+- B: Generally clear. Minor recognition inconsistencies suggesting slight pronunciation issues.
+- C: Noticeable recognition issues. Multiple unclear segments in transcript suggesting pronunciation problems.
+- D: Significant recognition difficulties. Large portions unclear or unintelligible. Note: This is an AI estimate, not a certified assessment.
+
+Also generate these additional fields:
+- estimatedPoints: number (0-100) — Overall score mapping: A average = 85-100, B average = 65-84, C average = 40-64, D average = 0-39
+- strengths: string[] (array in German)
+- weaknesses: string[] (array in German)
+- detailedFeedback: string (detailed German feedback covering presentation and discussion)
+- improvementSuggestions: string[] (practical German suggestions, e.g. "Use more connectors like 'darüber hinaus' and 'außerdem'", "Give concrete examples to support arguments", "Reduce repetition of 'gut' and 'wichtig'", "Use more complex sentence structures with subordinate clauses", "Structure your presentation with clear introduction and conclusion")
+- readinessScore: number (0-100) — Calibrated: 85-100 = Strong Pass, 65-84 = Pass, 0-64 = Borderline
+- likelyExamLevel: "Strong Pass" | "Pass" | "Borderline" — Must match readinessScore ranges above
+
+Return valid JSON only. No markdown, no code fences, no explanation outside JSON.`;
 
   return makeRequest(config, {
     model: config.model || DEFAULT_MODEL,
@@ -202,7 +229,7 @@ ${
 
 Rules:
 - Questions MUST be related to the specific topic, not generic
-- Challenge the candidate's观点 where appropriate
+- Challenge the candidate's views where appropriate
 - Ask for examples, counterarguments, or personal experience
 - Respond naturally as an examiner would
 - Keep responses concise (1-2 sentences)
@@ -270,19 +297,50 @@ export async function evaluateFollowUpAnswers(
     ? `\n\nInteractive discussion:\n${discussionTurns.map((t) => `${t.role === 'examiner' ? 'Examiner' : 'Candidate'}: ${t.text}`).join('\n')}`
     : '';
 
-  const systemPrompt = `You are an official TELC C1 examiner evaluating a complete exam.
+  const systemPrompt = `You are an official TELC C1 examiner producing a FINAL evaluation for a complete exam. The candidate gave a presentation, participated in an interactive discussion, and answered follow-up questions.
 
-The candidate gave a presentation, participated in an interactive discussion, and answered follow-up questions.
+CALIBRATION INSTRUCTION: Use the FULL grading scale A-D. A = excellent C1+, B = solid C1, C = weak/passable C1, D = below C1. Do NOT inflate. Be honest. D means improvement needed, not failure.
 
-Return a FINAL evaluation JSON with these exact keys:
-- aufgabengerechtheit, flüssigkeit, repertoire, grammatischeRichtigkeit, ausspracheUndIntonation (each A/B/C/D)
-- estimatedPoints (number 0-100)
-- strengths (string[])
-- weaknesses (string[])
-- detailedFeedback (string)
-- improvementSuggestions (string[], practical suggestions like "Use more connectors", "Give concrete examples", "Reduce repetition", "Improve sentence complexity")
-- readinessScore (number 0-100)
-- likelyExamLevel ("Strong Pass" | "Pass" | "Borderline")
+GRADE RUBRICS:
+
+aufgabengerechtheit (Aufgabenbewältigung):
+- A: Excellent. Clear structure (Einleitung, Hauptteil, Schluss). All aspects covered with depth. Good examples and discussion integration.
+- B: Good. Mostly clear structure. Most aspects covered. Some depth. Relevant discussion.
+- C: Adequate. Loose structure. Superficial coverage. Few examples. Short discussion.
+- D: Weak. No structure. Topic barely addressed. No examples. Minimal discussion.
+
+flüssigkeit (Sprechflüssigkeit):
+- A: Fluent, effortless, no hesitation. Smooth throughout.
+- B: Generally fluent, minor hesitation.
+- C: Noticeable pauses, fragmented delivery.
+- D: Frequent long pauses, halting.
+
+repertoire (Spektrum):
+- A: Broad vocabulary, multiple advanced connectors (darüber hinaus, außerdem, einerseits...andererseits, folglich, dennoch, hingegen), no repetition.
+- B: Good vocabulary, some connectors, occasional repetition.
+- C: Limited vocabulary, few connectors (und, aber, auch), noticeable repetition.
+- D: Very limited, only basic connectors, heavy repetition.
+
+grammatischeRichtigkeit:
+- A: Consistently correct. Subordinate clauses used correctly. No errors.
+- B: Mostly correct. Minor errors in complex structures.
+- C: Frequent errors. Verb placement problems. Errors impede clarity sometimes.
+- D: Pervasive errors. Basic structures wrong. Understanding significantly impeded.
+
+ausspracheUndIntonation:
+- A: Clear, consistent recognition.
+- B: Generally clear, minor issues.
+- C: Noticeable recognition problems.
+- D: Significant recognition difficulties.
+
+Also generate:
+- estimatedPoints: number (0-100) — A avg=85-100, B avg=65-84, C avg=40-64, D avg=0-39
+- strengths: string[]
+- weaknesses: string[]
+- detailedFeedback: string
+- improvementSuggestions: string[] (practical, specific German suggestions)
+- readinessScore: number (0-100) — 85-100=Strong Pass, 65-84=Pass, 0-64=Borderline
+- likelyExamLevel: "Strong Pass" | "Pass" | "Borderline" — must match readinessScore
 
 No markdown, no code fences. Return valid JSON only.`;
 
