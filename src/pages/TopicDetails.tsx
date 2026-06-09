@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { ProgressBar } from '../components/ui/ProgressBar';
-import { CheckCircle2, Circle, ArrowRight, PlayCircle, GraduationCap, GripVertical, Edit3, Save, X, Plus, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Circle, ArrowRight, PlayCircle, GraduationCap, GripVertical, Edit3, Save, X, Plus, RefreshCw, Star } from 'lucide-react';
 import type { Sentence } from '../models/types';
 
 export default function TopicDetails() {
@@ -245,7 +245,14 @@ export default function TopicDetails() {
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-lg shadow-purple-900/40"
           >
             <GraduationCap size={18} />
-            <span className="hidden sm:inline">Start Exam</span>
+            <span className="hidden sm:inline">Exam</span>
+          </Link>
+          <Link
+            to={`/telc-exam?topicId=${topic.id}`}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-lg shadow-indigo-900/40"
+          >
+            <Star size={18} />
+            <span className="hidden sm:inline">TELC Exam</span>
           </Link>
           <Link
             to={`/practice/${topic.id}`}

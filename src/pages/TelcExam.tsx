@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import {
   Mic, MicOff, Clock, Trophy, ChevronDown, ChevronUp,
   Loader2, AlertCircle, MessageSquare, Gauge, BookOpen,
-  CheckCircle2, XCircle, HelpCircle, RefreshCw
+  CheckCircle2, XCircle, HelpCircle, RefreshCw,
+  FolderOpen, Edit3, Sparkles, ArrowRight
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, OpenRouterError } from '../services/openRouter';
@@ -31,17 +32,26 @@ const TELC_TOPICS = [
 
 const TELC_DURATION = 180; // 3 minutes
 
-type Phase = 'intro' | 'presentation' | 'completed' | 'followup' | 'evaluating' | 'evaluation-done' | 'error';
+type Phase = 'topic-select' | 'preparation' | 'presentation' | 'completed' | 'followup' | 'evaluating' | 'evaluation-done' | 'error';
+type TopicSource = 'existing' | 'custom' | 'random';
 
 export default function TelcExam() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const topicIdParam = searchParams.get('topicId');
+  const topics = useTopicStore((state) => state.topics);
   const telcSettings = useTopicStore((state) => state.telcSettings);
   const addTelcSession = useTopicStore((state) => state.addTelcSession);
   const updateTelcEvaluation = useTopicStore((state) => state.updateTelcEvaluation);
   const updateTelcFollowUpQA = useTopicStore((state) => state.updateTelcFollowUpQA);
 
-  const [phase, setPhase] = useState<Phase>('intro');
-  const [topic] = useState(() => TELC_TOPICS[Math.floor(Math.random() * TELC_TOPICS.length)]);
+  // Derive initial state from URL param (Zustand loads synchronously from localStorage)
+  const initialTopic = topicIdParam ? topics.find((t) => t.id === topicIdParam) : null;
+  const [phase, setPhase] = useState<Phase>(initialTopic ? 'preparation' : 'topic-select');
+  const [topicSource, setTopicSource] = useState<TopicSource>('existing');
+  const [customTopic, setCustomTopic] = useState('');
+  const [selectedTopicId, setSelectedTopicId] = useState<string>(topicIdParam || '');
+  const [topic, setTopic] = useState(initialTopic?.title || '');
 
   // Timer
   const [elapsed, setElapsed] = useState(0);
@@ -181,6 +191,20 @@ export default function TelcExam() {
     startRecording();
   };
 
+  const handleSelectTopic = () => {
+    if (topicSource === 'custom') {
+      if (!customTopic.trim()) return;
+      setTopic(customTopic.trim());
+    } else if (topicSource === 'random') {
+      setTopic(TELC_TOPICS[Math.floor(Math.random() * TELC_TOPICS.length)]);
+    } else if (topicSource === 'existing') {
+      const found = topics.find((t) => t.id === selectedTopicId);
+      if (!found) return;
+      setTopic(found.title);
+    }
+    setPhase('preparation');
+  };
+
   const handleRunEvaluation = async () => {
     const session: TelcExamSession = {
       id: crypto.randomUUID(),
@@ -309,27 +333,173 @@ export default function TelcExam() {
 
   const remaining = Math.max(0, TELC_DURATION - elapsed);
 
-  // Intro phase
-  if (phase === 'intro') {
+  // Topic Selection phase
+  if (phase === 'topic-select') {
+    const existingTopics = topics;
+
     return (
       <div className="max-w-2xl mx-auto pb-20">
         <PageHeader title="TELC C1 Prüfungssimulation" showBack />
-        <div className="bg-gradient-to-br from-purple-600/10 to-blue-600/10 border border-purple-500/20 rounded-3xl p-8 shadow-xl">
-          <div className="flex items-center gap-3 mb-6">
-            <BookOpen size={32} className="text-purple-500" />
-            <h2 className="text-2xl font-black text-white">Prüfungsinformationen</h2>
+
+        {/* Info Banner */}
+        <div className="bg-gradient-to-br from-purple-600/10 to-blue-600/10 border border-purple-500/20 rounded-3xl p-6 mb-8 shadow-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <BookOpen size={24} className="text-purple-500" />
+            <h2 className="text-xl font-black text-white">Thema auswählen</h2>
           </div>
-          <div className="space-y-4 mb-8 text-gray-400">
-            <p>Sie erhalten ein Thema und haben <strong className="text-white">3 Minuten</strong> Zeit, um frei darüber zu sprechen.</p>
-            <p>Ihre Aufgabe ist es, eine strukturierte Präsentation mit Einleitung, Hauptteil und Schluss zu halten.</p>
-            <p>Nach der Präsentation folgen Verständnisfragen des Prüfers.</p>
-            {!telcSettings.aiEnabled && (
-              <div className="flex items-center gap-2 text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl mt-4">
-                <AlertCircle size={18} />
-                <span className="text-sm font-bold">KI-Bewertung ist deaktiviert. Aktivieren Sie sie in den Einstellungen für eine vollständige TELC-Auswertung.</span>
+          <p className="text-gray-400 text-sm">Wählen Sie ein Thema für Ihre TELC-Präsentation. Sie haben <strong className="text-white">3 Minuten</strong> Zeit, um frei zu sprechen.</p>
+        </div>
+
+        {/* Topic Source Tabs */}
+        <div className="flex gap-2 mb-6">
+          {[
+            { key: 'existing' as TopicSource, label: 'Eigene Themen', icon: FolderOpen },
+            { key: 'custom' as TopicSource, label: 'Eigenes Thema', icon: Edit3 },
+            { key: 'random' as TopicSource, label: 'Zufallsthema', icon: Sparkles },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setTopicSource(key)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all flex-1 justify-center",
+                topicSource === key
+                  ? "bg-purple-600 text-white shadow-lg shadow-purple-900/20"
+                  : "bg-gray-900 text-gray-500 hover:text-white border border-gray-800"
+              )}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Existing Topics */}
+        {topicSource === 'existing' && (
+          <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 shadow-xl">
+            {existingTopics.length === 0 ? (
+              <div className="text-center py-8">
+                <FolderOpen size={32} className="mx-auto text-gray-600 mb-3" />
+                <p className="text-gray-500">Keine Themen vorhanden.</p>
+                <Link to="/topic/new" className="text-purple-500 hover:underline mt-2 inline-block text-sm font-bold">
+                  Neues Thema erstellen
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {existingTopics.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => { setSelectedTopicId(t.id); setTopic(t.title); }}
+                    className={cn(
+                      "w-full text-left p-4 rounded-xl border transition-all",
+                      selectedTopicId === t.id
+                        ? "border-purple-500/30 bg-purple-500/10"
+                        : "border-gray-800 bg-gray-900 hover:bg-gray-800"
+                    )}
+                  >
+                    <p className="text-sm font-bold text-white">{t.title}</p>
+                    <p className="text-xs text-gray-500 mt-1">{t.sentences.length} Sätze · {Math.round((t.sentences.filter(s => s.isCompleted).length / Math.max(t.sentences.length, 1)) * 100)}% abgeschlossen</p>
+                  </button>
+                ))}
               </div>
             )}
           </div>
+        )}
+
+        {/* Custom Topic */}
+        {topicSource === 'custom' && (
+          <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 shadow-xl">
+            <label className="block text-sm font-medium text-gray-400 mb-3">Thema eingeben</label>
+            <textarea
+              value={customTopic}
+              onChange={(e) => setCustomTopic(e.target.value)}
+              placeholder="z.B. Welche Rolle spielen soziale Medien in der modernen Gesellschaft?"
+              rows={3}
+              className="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-none text-sm"
+            />
+            <p className="text-xs text-gray-600 mt-2">Geben Sie eine vollständige Themenfrage ein, wie sie in einer TELC-Prüfung gestellt werden könnte.</p>
+          </div>
+        )}
+
+        {/* Random Topic */}
+        {topicSource === 'random' && (
+          <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 shadow-xl">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles size={18} className="text-purple-500" />
+              <span className="text-sm font-bold text-gray-400">Zufälliges TELC-Thema</span>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 min-h-[80px]">
+              <p className="text-white font-bold text-base">{topic || TELC_TOPICS[0]}</p>
+            </div>
+            <button
+              onClick={() => setTopic(TELC_TOPICS[Math.floor(Math.random() * TELC_TOPICS.length)])}
+              className="mt-3 flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all border border-gray-800"
+            >
+              <RefreshCw size={14} />
+              Neues Thema
+            </button>
+          </div>
+        )}
+
+        {/* Confirm Button */}
+        <div className="mt-8">
+          <button
+            onClick={handleSelectTopic}
+            disabled={
+              (topicSource === 'existing' && !selectedTopicId) ||
+              (topicSource === 'custom' && !customTopic.trim())
+            }
+            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-900/30 text-lg"
+          >
+            <ArrowRight size={24} />
+            Weiter zur Prüfung
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Preparation phase
+  if (phase === 'preparation') {
+    return (
+      <div className="max-w-2xl mx-auto pb-20">
+        <PageHeader title="TELC C1 Prüfung" showBack />
+        <div className="bg-gradient-to-br from-purple-600/10 to-blue-600/10 border border-purple-500/20 rounded-3xl p-8 shadow-xl text-center">
+          <BookOpen size={48} className="mx-auto text-purple-500 mb-6" />
+          <div className="text-xs font-bold uppercase tracking-widest text-purple-500 mb-3">Ihr Thema</div>
+          <h2 className="text-2xl font-bold text-white leading-tight mb-8">{topic}</h2>
+
+          <div className="grid grid-cols-1 gap-3 mb-8 text-left">
+            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-center gap-3">
+              <Clock size={20} className="text-purple-500 shrink-0" />
+              <div>
+                <p className="text-sm text-white font-bold">3 Minuten</p>
+                <p className="text-xs text-gray-500">Sprechzeit</p>
+              </div>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-center gap-3">
+              <BookOpen size={20} className="text-purple-500 shrink-0" />
+              <div>
+                <p className="text-sm text-white font-bold">Freie Rede</p>
+                <p className="text-xs text-gray-500">Keine vorbereiteten Sätze</p>
+              </div>
+            </div>
+            <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex items-center gap-3">
+              <MessageSquare size={20} className="text-purple-500 shrink-0" />
+              <div>
+                <p className="text-sm text-white font-bold">Folgefragen</p>
+                <p className="text-xs text-gray-500">Nach der Präsentation</p>
+              </div>
+            </div>
+          </div>
+
+          {!telcSettings.aiEnabled && (
+            <div className="flex items-center gap-2 text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl mb-8">
+              <AlertCircle size={18} />
+              <span className="text-sm font-bold">KI-Bewertung ist deaktiviert.</span>
+            </div>
+          )}
+
           <button
             onClick={handleStartExam}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-purple-900/30 text-lg"
