@@ -203,6 +203,8 @@ Also generate these additional fields:
 - readinessScore: number (0-100) — Calibrated: 85-100 = Strong Pass, 65-84 = Pass, 0-64 = Borderline
 - likelyExamLevel: "Strong Pass" | "Pass" | "Borderline" — Must match readinessScore ranges above
 - discussionPerformance: { grade: "A"|"B"|"C"|"D", abilityToAnswer: boolean, abilityToDefend: boolean, abilityToReact: boolean, description: string }
+- discussionManagementScore: { grade: "A"|"B"|"C"|"D", description: string } — Evaluate overall discussion management: agreement/disagreement ability, reacting to partner, defending opinions, conversation management, spontaneous interaction. Provide a detailed description in German.
+- examinerNotes: { strengths: string[], weaknesses: string[], criticalErrors: string[] } — Dedicated examiner assessment section (separate from the normal feedback text). strengths = what the candidate did well, weaknesses = areas needing improvement, criticalErrors = serious or recurring mistakes that cost points.
 
 Return valid JSON only. No markdown, no code fences, no explanation outside JSON.`;
 
@@ -317,11 +319,12 @@ export async function generateDiscussionResponse(
     .map((t) => `${t.role === 'partner_a' || t.role === 'candidate' ? 'Teilnehmer A (Sie)' : 'Teilnehmer B (KI)'}: ${t.text}`)
     .join('\n');
 
-  const statementSection = discussionStatement
-    ? `\n\nDiscussion statement (These): "${discussionStatement}"\n\nYou are Teilnehmer B. Your task is to discuss this statement with the candidate (Teilnehmer A). You must take a clear position (agree or disagree) and maintain it consistently throughout the discussion.`
-    : '';
+  const stmt = discussionStatement || 'das Präsentationsthema';
+  const systemPrompt = `You are Teilnehmer B in a TELC C1 discussion. This is NOT an examiner interview. You are a discussion partner, like a fellow candidate.
 
-  const systemPrompt = `You are Teilnehmer B in a TELC C1 discussion. This is NOT an examiner interview. You are a discussion partner, like a fellow candidate.${statementSection}
+Discussion statement (These): "${stmt}"
+
+CRITICAL: You must take a CLEAR POSITION on this statement — either agree OR disagree. Choose one side and DEFEND it consistently throughout the entire discussion. Do NOT stay neutral. Do NOT change your position.
 
 ${
   isLastTurn
@@ -339,16 +342,18 @@ RULES FOR REAL DISCUSSION BEHAVIOR:
   • "Da stimme ich Ihnen nicht zu."
   • "Das überzeugt mich noch nicht."
   • "Könnten Sie dafür ein Beispiel nennen?"
-  • "Ich sehe das anders."
+  • "Ich sehe das anders. Meiner Meinung nach ..."
   • "Darf ich kurz einhaken?"
   • "Da stimme ich Ihnen zu, aber ..."
   • "Ich verstehe Ihren Punkt, allerdings ..."
   • "Ein wichtiger Aspekt, den Sie übersehen, ist ..."
+  • "Das kann ich so nicht stehen lassen."
+  • "Sehen Sie, das Problem ist ..."
 - Interrupt naturally about 20-30% of the time
 - Keep responses concise (1-3 sentences)
 - Speak in German throughout
 
-This must feel like two candidates discussing, NOT an examiner asking questions.`;
+This must feel like two candidates discussing the statement, NOT an examiner asking questions. Your job is to debate the statement, challenge the other person's views, and defend your own position.`;
 
   const userPrompt = `Topic: ${topic}\n\nCandidate's presentation: ${transcript}\n\nDiscussion so far:\n${discussionHistory || 'No discussion yet.'}\n\nTurn ${turnIndex + 1} of ${totalTurns}: Provide your response as Teilnehmer B.`;
 
@@ -515,6 +520,8 @@ Also generate:
 - improvementSuggestions: string[] (practical, specific German suggestions)
 - readinessScore: number (0-100) — 85-100=Strong Pass, 65-84=Pass, 0-64=Borderline
 - likelyExamLevel: "Strong Pass" | "Pass" | "Borderline" — must match readinessScore
+- discussionManagementScore: { grade: "A"|"B"|"C"|"D", description: string } — Evaluate overall discussion management: agreement/disagreement ability, reacting to partner, defending opinions, conversation management, spontaneous interaction. Provide a detailed description in German.
+- examinerNotes: { strengths: string[], weaknesses: string[], criticalErrors: string[] } — Dedicated examiner assessment section (separate from the normal feedback text). strengths = what the candidate did well, weaknesses = areas needing improvement, criticalErrors = serious or recurring mistakes that cost points.
 
 No markdown, no code fences. Return valid JSON only.`;
 

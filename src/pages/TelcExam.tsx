@@ -71,6 +71,7 @@ export default function TelcExam() {
   const topicIdParam = searchParams.get('topicId');
   const topics = useTopicStore((state) => state.topics);
   const telcSettings = useTopicStore((state) => state.telcSettings);
+  const telcHistory = useTopicStore((state) => state.telcHistory);
   const addTelcSession = useTopicStore((state) => state.addTelcSession);
   const updateTelcEvaluation = useTopicStore((state) => state.updateTelcEvaluation);
   const updateTelcFollowUpQA = useTopicStore((state) => state.updateTelcFollowUpQA);
@@ -80,7 +81,6 @@ export default function TelcExam() {
   const updateTelcSummaryFeedback = useTopicStore((state) => state.updateTelcSummaryFeedback);
   const updateTelcDurationEvaluation = useTopicStore((state) => state.updateTelcDurationEvaluation);
   const updateTelcDiscussionPerformance = useTopicStore((state) => state.updateTelcDiscussionPerformance);
-  const updateTelcPreparationNotes = useTopicStore((state) => state.updateTelcPreparationNotes);
   const updateTelcPresentationQuestions = useTopicStore((state) => state.updateTelcPresentationQuestions);
   const updateTelcDiscussionStatement = useTopicStore((state) => state.updateTelcDiscussionStatement);
 
@@ -339,8 +339,9 @@ export default function TelcExam() {
     // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
 
+    const existingSession = sessionId ? telcHistory.find(s => s.id === sessionId) : null;
     const session: TelcExamSession = {
-      id: crypto.randomUUID(),
+      id: sessionId || crypto.randomUUID(),
       topic,
       transcript: transcriptRef.current.trim(),
       duration: elapsed,
@@ -352,8 +353,11 @@ export default function TelcExam() {
       evaluation: null,
       aiAvailable: false,
       audioBlob: audioBase64,
+      preparationNotes: existingSession?.preparationNotes,
+      presentationQuestions: existingSession?.presentationQuestions,
+      discussionStatement: existingSession?.discussionStatement,
     };
-    addTelcSession(session);
+    if (!sessionId) addTelcSession(session);
     setSessionId(session.id);
 
     if (!telcSettings.aiEnabled || !telcSettings.apiKey) {
@@ -851,8 +855,15 @@ export default function TelcExam() {
 
         <button
           onClick={() => {
+            const newId = crypto.randomUUID();
             const notes: PreparationNotes = { notes: prepNotes, keywords: prepKeywords, outline: prepOutline };
-            if (sessionId) updateTelcPreparationNotes(sessionId, notes);
+            const session: TelcExamSession = {
+              id: newId, topic, transcript: '', duration: 0, wordCount: 0, wpm: 0,
+              timestamp: Date.now(), discussionTurns: [], followUpQA: [],
+              evaluation: null, aiAvailable: false, preparationNotes: notes,
+            };
+            addTelcSession(session);
+            setSessionId(newId);
             handleStartExam();
           }}
           className="w-full bg-green-600 hover:bg-green-700 text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-green-900/30 text-lg"
@@ -1295,10 +1306,10 @@ export default function TelcExam() {
         <div className="bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border border-indigo-500/20 rounded-3xl p-6 mb-6 shadow-xl">
           <div className="flex items-center gap-3 mb-2">
             <MessageCircle size={24} className="text-indigo-500" />
-            <h2 className="text-xl font-black text-white">Diskussion mit dem Prüfer</h2>
+            <h2 className="text-xl font-black text-white">Diskussion mit dem Partner</h2>
           </div>
           <p className="text-gray-400 text-sm">
-            Der Prüfer stellt Ihnen Fragen zu Ihrer Präsentation. Antworten Sie frei.
+            Diskutieren Sie mit Ihrem Partner über die gewählte These. Reagieren Sie auf die Argumente und verteidigen Sie Ihre Position.
           </p>
         </div>
 
@@ -1316,7 +1327,7 @@ export default function TelcExam() {
                   : "bg-indigo-600/20 border border-indigo-500/30 text-white"
               )}>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-60">
-                  {turn.role === 'examiner' ? 'Prüfer' : 'Sie'}
+                  {turn.role === 'examiner' ? 'Partner' : 'Sie'}
                 </p>
                 <p className="text-sm leading-relaxed">{turn.text}</p>
               </div>
@@ -1327,7 +1338,7 @@ export default function TelcExam() {
               <div className="bg-gray-800 border border-gray-700 rounded-2xl px-5 py-3">
                 <div className="flex items-center gap-2">
                   <Loader2 size={16} className="animate-spin text-indigo-500" />
-                  <span className="text-sm text-gray-400">Prüfer überlegt...</span>
+                  <span className="text-sm text-gray-400">Partner überlegt...</span>
                 </div>
               </div>
             </div>
@@ -1616,6 +1627,69 @@ export default function TelcExam() {
             </div>
           </div>
           <p className="text-xs text-gray-600 mt-3">{evaluation.discussionPerformance.description}</p>
+        </div>
+      )}
+
+      {/* Discussion Management Score */}
+      {'discussionManagementScore' in evaluation && evaluation.discussionManagementScore && (
+        <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 mb-6 shadow-xl">
+          <h4 className="text-sm font-bold text-indigo-400 mb-3 flex items-center gap-2">
+            <MessageCircle size={16} />
+            Diskussionsmanagement
+          </h4>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-bold text-white">Gesamtbewertung</span>
+            <span className={cn("text-2xl font-black", getGradeColor(evaluation.discussionManagementScore.grade))}>
+              {evaluation.discussionManagementScore.grade}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">{evaluation.discussionManagementScore.description}</p>
+        </div>
+      )}
+
+      {/* Examiner Notes */}
+      {'examinerNotes' in evaluation && evaluation.examinerNotes && (
+        <div className="bg-gray-950 border border-gray-900 rounded-3xl p-6 mb-6 shadow-xl">
+          <h4 className="text-sm font-bold text-amber-400 mb-4 flex items-center gap-2">
+            <MessageSquare size={16} />
+            Prüfervermerk
+          </h4>
+          {evaluation.examinerNotes.strengths.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-bold text-green-400 mb-2">Stärken</p>
+              <ul className="space-y-1">
+                {evaluation.examinerNotes.strengths.map((s, i) => (
+                  <li key={i} className="text-sm text-gray-300 flex gap-2">
+                    <span className="text-green-500 shrink-0">+</span>{s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {evaluation.examinerNotes.weaknesses.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-bold text-yellow-400 mb-2">Schwächen</p>
+              <ul className="space-y-1">
+                {evaluation.examinerNotes.weaknesses.map((w, i) => (
+                  <li key={i} className="text-sm text-gray-300 flex gap-2">
+                    <span className="text-yellow-500 shrink-0">−</span>{w}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {evaluation.examinerNotes.criticalErrors.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-red-400 mb-2">Kritische Fehler</p>
+              <ul className="space-y-1">
+                {evaluation.examinerNotes.criticalErrors.map((e, i) => (
+                  <li key={i} className="text-sm text-gray-300 flex gap-2">
+                    <span className="text-red-500 shrink-0">✗</span>{e}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

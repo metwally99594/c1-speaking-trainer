@@ -88,6 +88,15 @@ export interface TelcEvaluation extends TelcGrade {
     abilityToReact: boolean;
     description: string;
   };
+  discussionManagementScore?: {
+    grade: 'A' | 'B' | 'C' | 'D';
+    description: string;
+  };
+  examinerNotes?: {
+    strengths: string[];
+    weaknesses: string[];
+    criticalErrors: string[];
+  };
 }
 
 export interface PreparationNotes {

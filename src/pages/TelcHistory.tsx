@@ -146,6 +146,43 @@ export default function TelcHistory() {
                     <AudioPlayer audioBlob={session.audioBlob} />
                   )}
 
+                  {/* Preparation Notes */}
+                  {session.preparationNotes && (
+                    <div className="bg-yellow-900/10 border border-yellow-500/20 rounded-xl p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-500 mb-2">Vorbereitungsnotizen</p>
+                      {session.preparationNotes.notes && <p className="text-sm text-gray-300 whitespace-pre-wrap mb-2">{session.preparationNotes.notes}</p>}
+                      {session.preparationNotes.keywords && <p className="text-xs text-gray-500">Stichwörter: {session.preparationNotes.keywords}</p>}
+                      {session.preparationNotes.outline && <p className="text-xs text-gray-500">Gliederung: {session.preparationNotes.outline}</p>}
+                    </div>
+                  )}
+
+                  {/* Discussion Statement */}
+                  {session.discussionStatement && (
+                    <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500 mb-1">Diskussionsthema</p>
+                      <p className="text-sm text-gray-300">{session.discussionStatement}</p>
+                    </div>
+                  )}
+
+                  {/* Presentation Questions & Answers */}
+                  {session.presentationQuestions && session.presentationQuestions.length > 0 && (
+                    <details className="bg-gray-900 rounded-xl border border-gray-800">
+                      <summary className="p-4 cursor-pointer text-sm font-bold text-gray-400 hover:text-gray-300 transition-colors">
+                        Verständnisfragen ({session.presentationQuestions.length})
+                      </summary>
+                      <div className="px-4 pb-4 space-y-3">
+                        {session.presentationQuestions.map((pq, i) => (
+                          <div key={i} className="bg-black rounded-xl p-3 border border-gray-800">
+                            <p className="text-xs font-bold text-cyan-400 mb-1">Frage {i + 1}</p>
+                            <p className="text-sm text-gray-300 mb-2">{pq.question}</p>
+                            <p className="text-xs font-bold text-gray-500 mb-1">Antwort</p>
+                            <p className="text-sm text-gray-300">{pq.answer || <span className="italic text-gray-600">Keine Antwort</span>}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
                   {/* AI Summary */}
                   {session.aiSummary && (
                     <div className="bg-cyan-900/10 border border-cyan-500/20 rounded-xl p-4">
@@ -215,6 +252,56 @@ export default function TelcHistory() {
                           <span className="text-gray-400">Spontan reagiert</span>
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Discussion Management Score */}
+                  {session.evaluation?.discussionManagementScore && (
+                    <div className="bg-indigo-900/10 border border-indigo-500/20 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">Diskussionsmanagement</p>
+                        <span className={cn("text-lg font-black", getGradeColor(session.evaluation.discussionManagementScore.grade))}>
+                          {session.evaluation.discussionManagementScore.grade}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">{session.evaluation.discussionManagementScore.description}</p>
+                    </div>
+                  )}
+
+                  {/* Examiner Notes */}
+                  {session.evaluation?.examinerNotes && (
+                    <div className="bg-amber-900/10 border border-amber-500/20 rounded-xl p-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-amber-500 mb-3">Prüfervermerk</p>
+                      {session.evaluation.examinerNotes.strengths.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs font-bold text-green-400 mb-1">Stärken</p>
+                          <ul className="space-y-1">
+                            {session.evaluation.examinerNotes.strengths.map((s, i) => (
+                              <li key={i} className="text-xs text-gray-300 flex gap-1"><span className="text-green-500">+</span>{s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {session.evaluation.examinerNotes.weaknesses.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-xs font-bold text-yellow-400 mb-1">Schwächen</p>
+                          <ul className="space-y-1">
+                            {session.evaluation.examinerNotes.weaknesses.map((w, i) => (
+                              <li key={i} className="text-xs text-gray-300 flex gap-1"><span className="text-yellow-500">−</span>{w}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {session.evaluation.examinerNotes.criticalErrors.length > 0 && (
+                        <div>
+                          <p className="text-xs font-bold text-red-400 mb-1">Kritische Fehler</p>
+                          <ul className="space-y-1">
+                            {session.evaluation.examinerNotes.criticalErrors.map((e, i) => (
+                              <li key={i} className="text-xs text-gray-300 flex gap-1"><span className="text-red-500">✗</span>{e}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
 
