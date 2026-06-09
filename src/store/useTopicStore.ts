@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, TelcSettings, TelcExamSession, TelcEvaluation, FollowUpQA } from '../models/types';
 import type { ComparedWord } from '../utils/accuracyEngine';
 
 interface TopicState {
@@ -9,6 +9,8 @@ interface TopicState {
   voiceSettings: VoiceSettings;
   wordStats: Record<string, WordStat>;
   sentenceChunks: Record<string, ChunkData[]>;
+  telcSettings: TelcSettings;
+  telcHistory: TelcExamSession[];
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
@@ -21,6 +23,10 @@ interface TopicState {
   recordWordResults: (words: ComparedWord[]) => void;
   updateSentenceChunks: (sentenceId: string, chunks: ChunkData[]) => void;
   getSentenceChunks: (sentenceId: string) => ChunkData[];
+  updateTelcSettings: (settings: Partial<TelcSettings>) => void;
+  addTelcSession: (session: TelcExamSession) => void;
+  updateTelcEvaluation: (sessionId: string, evaluation: TelcEvaluation) => void;
+  updateTelcFollowUpQA: (sessionId: string, qa: FollowUpQA[]) => void;
   exportData: () => string;
   importData: (json: string) => boolean;
   resetAll: () => void;
@@ -42,6 +48,12 @@ export const useTopicStore = create<TopicState>()(
       },
       wordStats: {},
       sentenceChunks: {},
+      telcSettings: {
+        aiEnabled: false,
+        apiKey: '',
+        model: 'google/gemini-2.5-flash',
+      },
+      telcHistory: [],
       addTopic: (topicData, sentences) => {
         const newTopic: Topic = {
           ...topicData,
@@ -203,6 +215,30 @@ export const useTopicStore = create<TopicState>()(
 
       getSentenceChunks: (sentenceId) => {
         return get().sentenceChunks[sentenceId] || [];
+      },
+
+      updateTelcSettings: (settings) => {
+        set((state) => ({ telcSettings: { ...state.telcSettings, ...settings } }));
+      },
+
+      addTelcSession: (session) => {
+        set((state) => ({ telcHistory: [session, ...state.telcHistory] }));
+      },
+
+      updateTelcEvaluation: (sessionId, evaluation) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, evaluation, aiAvailable: true } : s
+          ),
+        }));
+      },
+
+      updateTelcFollowUpQA: (sessionId, qa) => {
+        set((state) => ({
+          telcHistory: state.telcHistory.map((s) =>
+            s.id === sessionId ? { ...s, followUpQA: qa } : s
+          ),
+        }));
       },
 
       exportData: () => {

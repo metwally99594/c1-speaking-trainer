@@ -17,8 +17,11 @@ export default function Settings() {
   const resetAll = useTopicStore(state => state.resetAll);
   const voiceSettings = useTopicStore(state => state.voiceSettings);
   const updateVoiceSettings = useTopicStore(state => state.updateVoiceSettings);
+  const telcSettings = useTopicStore(state => state.telcSettings);
+  const updateTelcSettings = useTopicStore(state => state.updateTelcSettings);
   
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [keyVisible, setKeyVisible] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
@@ -264,6 +267,90 @@ export default function Settings() {
                <span>Schnell (2x)</span>
              </div>
            </div>
+        </section>
+
+        {/* AI Evaluation Section */}
+        <section className="bg-gray-950 border border-gray-900 rounded-3xl p-8 shadow-xl">
+           <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+             <span className="text-purple-500">AI</span>
+             TELC KI-Bewertung
+           </h3>
+           <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+             Aktivieren Sie die KI-gestützte TELC-Prüfungsbewertung. Ihre Punktzahl wird nach dem offiziellen TELC C1-Bewertungsschema mit Hilfe von OpenRouter berechnet.
+           </p>
+
+           {/* AI Toggle */}
+           <div className="flex items-center justify-between mb-8 p-4 bg-gray-900 rounded-xl border border-gray-800">
+             <div>
+               <p className="text-white font-bold">KI-Bewertung</p>
+               <p className="text-gray-500 text-sm mt-1">{telcSettings.aiEnabled ? 'Aktiviert' : 'Deaktiviert'}</p>
+             </div>
+             <label className="relative inline-flex items-center cursor-pointer">
+               <input
+                 type="checkbox"
+                 checked={telcSettings.aiEnabled}
+                 onChange={(e) => updateTelcSettings({ aiEnabled: e.target.checked })}
+                 className="sr-only peer"
+               />
+               <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+             </label>
+           </div>
+
+           {telcSettings.aiEnabled && (
+             <div className="space-y-6">
+               {/* API Key */}
+               <div className="space-y-3">
+                 <label className="block text-sm font-medium text-gray-400">
+                   OpenRouter API Schlüssel
+                 </label>
+                 <div className="flex gap-2">
+                   <input
+                     type={keyVisible ? 'text' : 'password'}
+                     value={telcSettings.apiKey}
+                     onChange={(e) => updateTelcSettings({ apiKey: e.target.value })}
+                     placeholder="sk-or-v1-..."
+                     className="flex-1 bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all font-mono text-sm"
+                   />
+                   <button
+                     onClick={() => setKeyVisible(!keyVisible)}
+                     className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors text-xs"
+                   >
+                     {keyVisible ? 'Hide' : 'Show'}
+                   </button>
+                 </div>
+                 <p className="text-xs text-gray-600">
+                   Besuchen Sie{' '}
+                   <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:underline">
+                     openrouter.ai/keys
+                   </a>{' '}
+                   um einen API-Schlüssel zu erhalten. Der Schlüssel wird lokal in Ihrem Browser gespeichert.
+                 </p>
+               </div>
+
+               {/* Model Selection */}
+               <div className="space-y-3">
+                 <label className="block text-sm font-medium text-gray-400">KI-Modell</label>
+                 <select
+                   value={telcSettings.model}
+                   onChange={(e) => updateTelcSettings({ model: e.target.value })}
+                   className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                 >
+                   <option value="google/gemini-2.5-flash">Google Gemini 2.5 Flash (empfohlen)</option>
+                   <option value="openai/gpt-4.1-mini">OpenAI GPT-4.1 Mini</option>
+                   <option value="anthropic/claude-sonnet-4">Anthropic Claude Sonnet 4</option>
+                   <option value="deepseek-chat">DeepSeek Chat</option>
+                 </select>
+               </div>
+
+               {/* Status info */}
+               <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
+                 <p className="text-xs text-purple-400 leading-relaxed">
+                   <strong>Hinweis:</strong> KI-Aufrufe erfolgen nur nach Abschluss einer TELC-Prüfung und der Follow-up-Fragen.
+                   Es werden keine Hintergrundanfragen während des Übungsmodus, Chunk-Modus oder anderen Funktionen gesendet.
+                 </p>
+               </div>
+             </div>
+           )}
         </section>
 
         {/* Reset Section */}

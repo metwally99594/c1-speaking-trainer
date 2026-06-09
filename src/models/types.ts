@@ -56,3 +56,47 @@ export interface Topic {
   sentences: Sentence[];
   createdAt: number;
 }
+
+// --- TELC Types ---
+
+export interface TelcSettings {
+  aiEnabled: boolean;
+  apiKey: string;
+  model: string;
+}
+
+export interface TelcGrade {
+  aufgabengerechtheit: 'A' | 'B' | 'C' | 'D';
+  flüssigkeit: 'A' | 'B' | 'C' | 'D';
+  repertoire: 'A' | 'B' | 'C' | 'D';
+  grammatischeRichtigkeit: 'A' | 'B' | 'C' | 'D';
+  ausspracheUndIntonation: 'A' | 'B' | 'C' | 'D';
+}
+
+export interface TelcEvaluation extends TelcGrade {
+  estimatedPoints: number;
+  strengths: string[];
+  weaknesses: string[];
+  detailedFeedback: string;
+  improvementSuggestions: string[];
+  readinessScore: number;
+  likelyExamLevel: 'Strong Pass' | 'Pass' | 'Borderline';
+}
+
+export interface FollowUpQA {
+  question: string;
+  answer: string;
+}
+
+export interface TelcExamSession {
+  id: string;
+  topic: string;
+  transcript: string;
+  duration: number;
+  wordCount: number;
+  wpm: number;
+  timestamp: number;
+  followUpQA: FollowUpQA[];
+  evaluation: TelcEvaluation | null;
+  aiAvailable: boolean;
+}

@@ -9,6 +9,8 @@ import Exam from './pages/Exam';
 import ExamHistory from './pages/ExamHistory';
 import WeakWords from './pages/WeakWords';
 import Settings from './pages/Settings';
+import TelcExam from './pages/TelcExam';
+import TelcHistory from './pages/TelcHistory';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
@@ -26,6 +28,8 @@ function App() {
             <Route path="/exam-history" element={<ExamHistory />} />
             <Route path="/words" element={<WeakWords />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/telc-exam" element={<TelcExam />} />
+            <Route path="/telc-history" element={<TelcHistory />} />
           </Routes>
         </Layout>
       </BrowserRouter>
