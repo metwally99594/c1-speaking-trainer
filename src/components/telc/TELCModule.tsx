@@ -254,21 +254,36 @@ function PresentPhase({ topic, onDone }) {
     return () => clearInterval(intervalRef.current);
   }, [recording]);
 
+  const getMimeType = () => {
+    const types = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/mp4",
+    ];
+    return types.find(t => MediaRecorder.isTypeSupported(t)) || "";
+  };
+
   const startRec = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const mr = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      const mr = new MediaRecorder(stream, { mimeType: getMimeType() });
       mediaRef.current = mr;
       const localChunks = [];
       mr.ondataavailable = e => { if (e.data.size > 0) localChunks.push(e.data); };
       mr.onstop = async () => {
         setProcessing(true);
         const blob = new Blob(localChunks, { type: "audio/webm" });
-        // Simulate STT via AI (in production replace with real STT API)
-        await new Promise(r => setTimeout(r, 1500));
-        const simText = `[Sprachaufnahme erkannt – ${Math.floor(elapsed / 60)} Minuten ${elapsed % 60} Sekunden aufgenommen. In einer echten Implementierung würde hier der transkribierte Text erscheinen. Das System verwendet MediaRecorder → Server-seitige STT → Transkript.]`;
-        setTranscript(t => t ? t + " " + simText : simText);
+        const formData = new FormData();
+        formData.append("file", blob, "recording.webm");
+        try {
+          const res = await fetch("/api/transcribe", { method: "POST", body: formData });
+          const data = await res.json();
+          if (data.text) setTranscript(t => t ? t + " " + data.text.trim() : data.text.trim());
+        } catch (e) {
+          setTranscript(t => t ? t + " [Transkription fehlgeschlagen]" : "[Transkription fehlgeschlagen]");
+        }
         setProcessing(false);
       };
       mr.start(5000);
