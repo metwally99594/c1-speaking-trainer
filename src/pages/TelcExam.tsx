@@ -102,9 +102,10 @@ export default function TelcExam() {
   const [isRecording, setIsRecording] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [wpm, setWpm] = useState(0);
-  const [interimTranscript, setInterimTranscript] = useState('');
+  const [interimTranscript] = useState('');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
+  const keepAliveRef = useRef(false);
 
   // Structure helper
   const [structureOpen, setStructureOpen] = useState(true);
@@ -214,6 +215,9 @@ export default function TelcExam() {
   }, [stopTimer]);
 
   const handleStopRecording = useCallback(() => {
+    // Stop the keep-alive loop FIRST so onend does not restart
+    keepAliveRef.current = false;
+
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch { /* ignore */ }
     }
@@ -231,61 +235,89 @@ export default function TelcExam() {
     stopTimerAndRecording.current = handleStopRecording;
   }, [handleStopRecording]);
 
-  const startRecording = useCallback(async () => {
+  // -----------------------------------------------------------------
+  // startNewSession – creates a fresh recognizer for ONE utterance,
+  // then auto-restarts via onend as long as keepAliveRef is true.
+  // -----------------------------------------------------------------
+  const startNewSession = useCallback(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) {
-      setAiError('Speech recognition is not supported in this browser.');
-      return;
-    }
+    const SpeechRecognitionAPI =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) return;
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'de-DE';
-    recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.continuous = false;     // single-utterance — works on Android Chrome
+    recognition.interimResults = false; // final results only
 
     recognition.onstart = () => {
       setIsRecording(true);
-      setTranscript('');
-      setWordCount(0);
-      setWpm(0);
-      transcriptRef.current = '';
-      startTimeRef.current = Date.now();
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
-      let full = '';
-      let interim = '';
-      for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          full += event.results[i][0].transcript + ' ';
-        } else {
-          interim += event.results[i][0].transcript;
-        }
-      }
-      const finalText = full || transcriptRef.current;
-      transcriptRef.current = finalText;
-      setTranscript(finalText.trim());
-      setInterimTranscript(interim);
+      const result = event.results[0][0].transcript + ' ';
 
-      const words = finalText.trim().split(/\s+/).filter(Boolean).length;
+      // Accumulate into the mutable ref first, then sync to state
+      transcriptRef.current = transcriptRef.current + result;
+      setTranscript(transcriptRef.current.trim());
+
+      // Word count & WPM
+      const words = transcriptRef.current.trim().split(/\s+/).filter(Boolean).length;
       setWordCount(words);
       const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
-      if (elapsedSec > 0) {
-        setWpm(Math.round((words / elapsedSec) * 60));
-      }
+      if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
     };
 
-    recognition.onerror = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onerror = (event: any) => {
+      // Stop the restart loop if the user denied mic permission
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        keepAliveRef.current = false;
+      }
       setIsRecording(false);
     };
 
     recognition.onend = () => {
       setIsRecording(false);
+      if (keepAliveRef.current) {
+        // Restart for the next utterance — transcript keeps accumulating
+        setTimeout(startNewSession, 200);
+      }
     };
 
-    // Start audio recording
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, []);
+
+  // -----------------------------------------------------------------
+  // startRecording – called by the "Mikrofon einschalten" button.
+  // Starts the keepAlive loop, audio recording, and the timer.
+  // (Only the recognition config changed; MediaRecorder is untouched.)
+  // -----------------------------------------------------------------
+  const startRecording = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognitionAPI =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      setAiError('Speech recognition is not supported in this browser.');
+      return;
+    }
+
+    // Reset transcript for this session
+    transcriptRef.current = '';
+    setTranscript('');
+    setWordCount(0);
+    setWpm(0);
+    startTimeRef.current = Date.now();
+
+    // Start the keep-alive recognition loop
+    keepAliveRef.current = true;
+    startNewSession();
+
+    // ---- Audio recording (unchanged) ----------------------------------------
     audioChunksRef.current = [];
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -296,19 +328,17 @@ export default function TelcExam() {
       mediaRecorder.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setAudioBlob(blob);
-        // Stop all tracks
         stream.getTracks().forEach((t) => t.stop());
       };
       mediaRecorder.start();
       mediaRecorderRef.current = mediaRecorder;
     } catch {
-      // Audio recording not critical, continue without it
+      // Audio capture failure is non-critical – exam continues without it
     }
 
-    recognitionRef.current = recognition;
-    recognition.start();
+    // Start the presentation countdown timer
     startTimer();
-  }, [startTimer]);
+  }, [startNewSession, startTimer]);
 
   const handleStartExam = () => {
     setPhase('presentation');
