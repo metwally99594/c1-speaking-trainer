@@ -1,124 +1,34 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Mic, Square, Send, Trash2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mic, Square, Send, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '../utils/cn';
-
-type Status = 'idle' | 'recording' | 'sending' | 'done' | 'error';
+import { useGroqStt } from '../hooks/useGroqStt';
 
 export default function GroqSttTest() {
-  const [status, setStatus] = useState<Status>('idle');
-  const [transcript, setTranscript] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-  const [elapsed, setElapsed] = useState(0);
-  const [latency, setLatency] = useState<number | null>(null);
+  const {
+    transcript, isRecording, isProcessing,
+    startRecording, stopRecording, resetTranscript,
+  } = useGroqStt();
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [errorMsg, setErrorMsg] = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef(0);
-  // Always mirrors transcript state (not stale in closures)
-  const transcriptRef = useRef('');
 
-  // Sync ref whenever state changes
-  useEffect(() => {
-    transcriptRef.current = transcript;
-    console.log('RENDER transcript =', JSON.stringify(transcript));
-  }, [transcript]);
-
-  const stopRecording = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-    }
-  }, []);
-
-  const startRecording = useCallback(async () => {
-    console.log('=== startRecording ===');
-    console.log('transcriptRef.current (BEFORE)', JSON.stringify(transcriptRef.current));
-    try {
-      setStatus('recording');
-      setErrorMsg('');
-      setLatency(null);
-      chunksRef.current = [];
-      startTimeRef.current = Date.now();
-      setElapsed(0);
-      console.log('transcriptRef.current (AFTER reset block)', JSON.stringify(transcriptRef.current));
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        console.log('=== onstop ===');
-        console.log('transcriptRef.current (BEFORE fetch)', JSON.stringify(transcriptRef.current));
-        if (timerRef.current) clearInterval(timerRef.current);
-        setStatus('sending');
-
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('file', blob, 'recording.webm');
-
-        const sendStart = Date.now();
-        try {
-          const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
-          const data = await res.json();
-          setLatency(Date.now() - sendStart);
-          if (!res.ok) {
-            setErrorMsg(data.error || `HTTP ${res.status}`);
-            setStatus('error');
-          } else {
-            console.log('STOP APPEND =', JSON.stringify(data.text));
-            setTranscript(prev => {
-              const next = (prev ? prev + ' ' : '') + (data.text || '');
-              console.log('STOP BEFORE =', JSON.stringify(prev));
-              console.log('STOP AFTER  =', JSON.stringify(next));
-              return next;
-            });
-            setStatus('done');
-          }
-        } catch {
-          setLatency(Date.now() - sendStart);
-          setErrorMsg('Network error — is the API running?');
-          setStatus('error');
-        }
-      };
-
-      recorder.start();
-      timerRef.current = setInterval(() => {
-        setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
-      }, 200);
-
-      // Auto-stop after 30 seconds
-      setTimeout(() => {
-        if (mediaRecorderRef.current?.state === 'recording') {
-          stopRecording();
-        }
-      }, 30000);
-      console.log('transcriptRef.current (AFTER all setup)', JSON.stringify(transcriptRef.current));
-    } catch {
-      console.log('startRecording CATCH — mic denied or error');
-      setErrorMsg('Microphone access denied or unavailable');
-      setStatus('error');
-    }
-  }, [stopRecording]);
-
-  const reset = () => {
-    setStatus('idle');
-    setTranscript('');
+  const handleStart = useCallback(async () => {
     setErrorMsg('');
-    setLatency(null);
+    startTimeRef.current = Date.now();
     setElapsed(0);
-  };
+    timerRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 200);
+    await startRecording();
+  }, [startRecording]);
+
+  const handleStop = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    stopRecording();
+  }, [stopRecording]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -130,21 +40,19 @@ export default function GroqSttTest() {
             Status:{' '}
             <span
               className={cn('font-medium', {
-                'text-zinc-300': status === 'idle',
-                'text-red-400': status === 'recording',
-                'text-yellow-400': status === 'sending',
-                'text-emerald-400': status === 'done',
-                'text-red-500': status === 'error',
+                'text-zinc-300': !isRecording && !isProcessing && !transcript,
+                'text-red-400': isRecording,
+                'text-yellow-400': isProcessing,
+                'text-emerald-400': !isRecording && !isProcessing && !!transcript,
               })}
             >
-              {status === 'idle' && 'Ready'}
-              {status === 'recording' && `Recording… ${elapsed}s`}
-              {status === 'sending' && 'Sending to Groq…'}
-              {status === 'done' && 'Transcription received'}
-              {status === 'error' && 'Error'}
+              {isRecording && `Recording… ${elapsed}s`}
+              {isProcessing && 'Transcribing…'}
+              {!isRecording && !isProcessing && !transcript && 'Ready'}
+              {!isRecording && !isProcessing && !!transcript && 'Transcription received'}
             </span>
           </div>
-          {status === 'recording' && (
+          {isRecording && (
             <span className="inline-flex items-center gap-2 text-red-400 text-sm">
               <span className="size-2 rounded-full bg-red-500 animate-pulse" />
               LIVE
@@ -153,48 +61,40 @@ export default function GroqSttTest() {
         </div>
 
         <div className="flex gap-3">
-          {(status === 'idle' || status === 'done' || status === 'error') && (
-            <>
-              <button
-                onClick={startRecording}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors"
-              >
-                <Mic size={18} />
-                Start Recording
-              </button>
-              {(status === 'done' || status === 'error') && (
-                <button
-                  onClick={reset}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 font-medium transition-colors"
-                >
-                  <Trash2 size={18} />
-                  Reset
-                </button>
-              )}
-            </>
-          )}
-          {status === 'recording' && (
+          {!isRecording && !isProcessing && !transcript && (
             <button
-              onClick={stopRecording}
+              onClick={handleStart}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors"
+            >
+              <Mic size={18} />
+              Start Recording
+            </button>
+          )}
+          {isRecording && (
+            <button
+              onClick={handleStop}
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 font-medium transition-colors"
             >
               <Square size={18} />
               Stop Recording
             </button>
           )}
-          {status === 'sending' && (
+          {(isProcessing || (transcript && !isRecording)) && (
+            <button
+              onClick={() => { resetTranscript(); setElapsed(0); setErrorMsg(''); }}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 font-medium transition-colors"
+            >
+              <Trash2 size={18} />
+              Reset
+            </button>
+          )}
+          {isProcessing && (
             <div className="flex items-center gap-2 px-5 py-2.5 text-zinc-400">
               <Loader2 size={18} className="animate-spin" />
               Transcribing…
             </div>
           )}
         </div>
-
-        {latency !== null && (
-          <p className="text-xs text-zinc-500">
-            API latency: {latency}ms
-          </p>
-        )}
       </div>
 
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 space-y-3">
@@ -202,7 +102,7 @@ export default function GroqSttTest() {
           <Send size={14} />
           Transcript
         </h2>
-        {status === 'idle' && (
+        {!transcript && !isProcessing && (
           <p className="text-zinc-500 text-sm">Press "Start Recording" and speak.</p>
         )}
         {errorMsg && (
@@ -214,34 +114,14 @@ export default function GroqSttTest() {
         {transcript ? (
           <p className="text-zinc-100 whitespace-pre-wrap">{transcript}</p>
         ) : (
-          (status === 'done' || status === 'sending') && (
+          isProcessing && (
             <div className="flex items-center gap-2 text-zinc-500 text-sm">
-              {status === 'done' ? (
-                <>
-                  <CheckCircle2 size={16} />
-                  No text returned — try speaking longer or louder.
-                </>
-              ) : (
-                'Waiting for response…'
-              )}
+              <Loader2 size={16} className="animate-spin" />
+              Waiting for response…
             </div>
           )
         )}
       </div>
-
-      <details className="text-xs text-zinc-600 bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-        <summary className="cursor-pointer font-medium">Architecture</summary>
-        <pre className="mt-2 whitespace-pre-wrap leading-relaxed">
-{`Microphone → MediaRecorder → audio/webm blob
-  → POST /api/transcribe
-  → Vercel Edge Function forwards to Groq Whisper
-  → Returns { text: "..." }
-  → Displayed in this page`}
-        </pre>
-        <p className="mt-2 text-zinc-500">
-          Feature flag: <code className="text-zinc-300">USE_GROQ_STT</code>
-        </p>
-      </details>
     </div>
   );
 }

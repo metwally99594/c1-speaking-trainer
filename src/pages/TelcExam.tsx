@@ -12,6 +12,7 @@ import {
 import { cn } from '../utils/cn';
 import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, generateAiSummary, generatePresentationQuestions, OpenRouterError } from '../services/openRouter';
 import * as groq from '../services/groq';
+import { useGroqStt } from '../hooks/useGroqStt';
 import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DurationEvaluation, PreparationNotes, PresentationQuestion } from '../models/types';
 import { analyzeRedemittel } from '../utils/redemittelAnalyzer';
 import { analyzeVocabulary } from '../utils/vocabularyAnalyzer';
@@ -164,6 +165,40 @@ export default function TelcExam() {
   const startTimeRef = useRef(0);
   const transcriptRef = useRef('');
 
+  // Groq STT hook (always called per React rules; results used only when USE_GROQ_STT)
+  const groqStt = useGroqStt({ timeslice: 8000 });
+
+  // Sync Groq STT processing state to TELC's processing state
+  useEffect(() => {
+    if (USE_GROQ_STT) setProcessing(groqStt.isProcessing);
+  }, [groqStt.isProcessing]);
+
+  // Sync Groq STT transcript to TELC's transcript + word count + WPM
+  useEffect(() => {
+    if (!USE_GROQ_STT) return;
+    if (groqStt.transcript !== transcriptRef.current) {
+      transcriptRef.current = groqStt.transcript;
+      setTranscript(groqStt.transcript);
+      const words = groqStt.transcript.split(/\s+/).filter(Boolean).length;
+      setWordCount(words);
+      const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
+      if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
+    }
+  }, [groqStt.transcript]);
+
+  // Transition to completed phase when Groq processing finishes
+  const groqCompletedRef = useRef(false);
+  useEffect(() => {
+    if (!USE_GROQ_STT) return;
+    if (!groqStt.isRecording && !groqStt.isProcessing && !groqCompletedRef.current) {
+      groqCompletedRef.current = true;
+      setPhase('completed');
+    }
+    if (groqStt.isRecording || groqStt.isProcessing) {
+      groqCompletedRef.current = false;
+    }
+  }, [groqStt.isRecording, groqStt.isProcessing]);
+
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -228,10 +263,7 @@ export default function TelcExam() {
     stopTimer();
 
     if (USE_GROQ_STT) {
-      // Stop the MediaRecorder — onstop handler transcribes via Groq then sets phase
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
-      }
+      groqStt.stopRecording();
       setIsRecording(false);
       setProcessing(true);
     } else {
@@ -373,66 +405,9 @@ export default function TelcExam() {
     startTimeRef.current = Date.now();
 
     if (USE_GROQ_STT) {
-      // ---- Groq Whisper path (timeslice chunking) ----
+      // ---- Groq Whisper path (uses shared useGroqStt hook) ----
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-        // Queue for sequential chunk processing
-        const pendingChunks: Blob[] = [];
-        let processing = false;
-
-        async function processQueue() {
-          if (processing) return;
-          processing = true;
-          while (pendingChunks.length > 0) {
-            const chunk = pendingChunks.shift()!;
-            const blob = new Blob([chunk], { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append('file', blob, 'chunk.webm');
-
-            try {
-              const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
-              const data = await res.json();
-              if (res.ok && data.text) {
-                const sep = transcriptRef.current ? ' ' : '';
-                transcriptRef.current += sep + data.text.trim();
-                console.log('Groq chunk transcript:', data.text.trim());
-                setTranscript(transcriptRef.current);
-                const words = transcriptRef.current.split(/\s+/).filter(Boolean).length;
-                setWordCount(words);
-                const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
-                if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
-              } else if (!res.ok) {
-                console.log('Groq chunk error', res.status, data.error);
-              }
-            } catch (err) {
-              console.log('Groq chunk fetch error', err);
-            }
-          }
-          processing = false;
-        }
-
-        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-        mediaRecorderRef.current = recorder;
-
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            pendingChunks.push(e.data);
-            processQueue();
-          }
-        };
-
-        recorder.onstop = async () => {
-          console.log('MediaRecorder onstop');
-          // Wait for remaining chunks to finish
-          while (pendingChunks.length > 0 || processing) {
-            await new Promise((r) => setTimeout(r, 200));
-          }
-          setProcessing(false);
-          setPhase('completed');
-        };
-
-        recorder.start(8000); // 8-second timeslices
+        await groqStt.startRecording();
       } catch {
         setAiError('Microphone access denied or unavailable');
         setPhase('error');
