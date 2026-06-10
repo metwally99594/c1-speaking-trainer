@@ -106,6 +106,8 @@ export default function TelcExam() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const keepAliveRef = useRef(false);
+  // Monotonic counter to prevent re-processing the same result index
+  const lastProcessedIndexRef = useRef(0);
 
   // Structure helper
   const [structureOpen, setStructureOpen] = useState(true);
@@ -270,23 +272,23 @@ export default function TelcExam() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       console.log('resultIndex:', event.resultIndex, 'results.length:', event.results.length);
-      let full = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
+      let appended = false;
+      // Process only new/changed result indices (monotonic guard)
+      for (let i = Math.max(event.resultIndex, lastProcessedIndexRef.current); i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
-          full = event.results[i][0].transcript + ' ';
+          const segment = event.results[i][0].transcript;
+          console.log('appending index', i, 'segment:', segment);
+          transcriptRef.current += segment + ' ';
+          appended = true;
         }
       }
-      if (!full) {
-        console.log('onresult (interim)', event.results[0][0].transcript);
+      lastProcessedIndexRef.current = event.results.length;
+      if (!appended) {
+        // interim
+        console.log('onresult (interim)', event.results[event.resultIndex][0].transcript);
         return;
       }
-      console.log('onresult (final)', full.trim());
-      console.log('transcriptRef BEFORE', transcriptRef.current);
       hasReceivedResult = true;
-
-      // With continuous:true each final result contains the complete text so far.
-      // Replace rather than append to avoid duplication.
-      transcriptRef.current = full;
       console.log('transcriptRef AFTER', transcriptRef.current.trim());
       setTranscript(transcriptRef.current.trim());
 
