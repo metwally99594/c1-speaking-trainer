@@ -66,7 +66,7 @@ export function useGroqStt(options: UseGroqSttOptions = {}): UseGroqSttReturn {
         if (e.data.size === 0) return;
 
         if (timeslice > 0) {
-          // Send each timeslice chunk sequentially via promise chain
+          allChunks.push(e.data); // accumulate for final full-recording pass
           const chunk = e.data;
           processingChain = processingChain.then(async () => {
             setIsProcessing(true);
@@ -97,9 +97,28 @@ export function useGroqStt(options: UseGroqSttOptions = {}): UseGroqSttReturn {
 
       recorder.onstop = async () => {
         if (timeslice > 0) {
-          // Wait for all pending chunks to finish
+          // Wait for all live chunks to finish, then send the full recording
+          // for a final accurate transcription (avoids split-word errors)
           await processingChain;
-          setIsProcessing(false);
+          setIsProcessing(true);
+          try {
+            const blob = new Blob(allChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('file', blob, 'recording.webm');
+            const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (res.ok && data.text) {
+              const final = data.text.trim();
+              transcriptRef.current = final;
+              setTranscriptState(final);
+            } else {
+              console.log('Groq final pass error', res.status, data.error);
+            }
+          } catch (err) {
+            console.log('Groq final pass error', err);
+          } finally {
+            setIsProcessing(false);
+          }
         } else {
           // Send entire recording as one blob
           setIsProcessing(true);

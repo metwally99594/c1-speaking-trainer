@@ -165,7 +165,7 @@ export default function TelcExam() {
   const transcriptRef = useRef('');
 
   // Groq STT hook (always called per React rules)
-  const groqStt = useGroqStt({ timeslice: 8000 });
+  const groqStt = useGroqStt({ timeslice: 4000 });
 
   // Sync isProcessing from the hook → TELC processing state
   useEffect(() => {
