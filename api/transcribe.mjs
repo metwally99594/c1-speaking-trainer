@@ -1,8 +1,26 @@
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+console.log('GROQ_API_KEY present:', !!GROQ_API_KEY);
+
 export const config = {
   runtime: 'edge',
 };
 
 export default async function handler(req) {
+  // Health-check ping via GET
+  if (req.method === 'GET') {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        keyConfigured: !!GROQ_API_KEY,
+        runtime: 'edge',
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  }
+
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -10,12 +28,17 @@ export default async function handler(req) {
     });
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  if (!GROQ_API_KEY) {
+    return new Response(
+      JSON.stringify({
+        error: 'GROQ_API_KEY not configured',
+        hint: 'Set GROQ_API_KEY in Vercel project → Settings → Environment Variables',
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
   }
 
   try {
@@ -38,7 +61,7 @@ export default async function handler(req) {
     const groqRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
       },
       body: groqFormData,
     });
