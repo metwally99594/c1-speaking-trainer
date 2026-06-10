@@ -9,10 +9,6 @@ import Exam from './pages/Exam';
 import ExamHistory from './pages/ExamHistory';
 import WeakWords from './pages/WeakWords';
 import Settings from './pages/Settings';
-import TelcExam from './pages/TelcExam';
-import TelcHistory from './pages/TelcHistory';
-import TelcCalibration from './pages/TelcCalibration';
-import TelcBenchmark from './pages/TelcBenchmark';
 import GroqSttTest from './pages/GroqSttTest';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -31,10 +27,6 @@ function App() {
             <Route path="/exam-history" element={<ExamHistory />} />
             <Route path="/words" element={<WeakWords />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/telc-exam" element={<TelcExam />} />
-            <Route path="/telc-history" element={<TelcHistory />} />
-            <Route path="/telc-calibration" element={<TelcCalibration />} />
-            <Route path="/telc-benchmark" element={<TelcBenchmark />} />
             <Route path="/groq-stt-test" element={<GroqSttTest />} />
           </Routes>
         </Layout>

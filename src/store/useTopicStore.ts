@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, TelcSettings, TelcExamSession, TelcEvaluation, FollowUpQA, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DiscussionPerformance, DurationEvaluation, PreparationNotes, PresentationQuestion, DiscussionManagementScore, DiscussionTurn, AIPresentationSession } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData } from '../models/types';
 import type { ComparedWord } from '../utils/accuracyEngine';
 
 interface TopicState {
@@ -9,27 +9,6 @@ interface TopicState {
   voiceSettings: VoiceSettings;
   wordStats: Record<string, WordStat>;
   sentenceChunks: Record<string, ChunkData[]>;
-  telcSettings: TelcSettings;
-  telcHistory: TelcExamSession[];
-  telcFeedback: TelcFeedback[];
-  addTelcFeedback: (feedback: TelcFeedback) => void;
-  getCalibrationStats: () => { totalEvaluations: number; accurate: number; tooStrict: number; tooGenerous: number };
-  updateTelcLanguageAnalysis: (sessionId: string, analysis: TelcLanguageAnalysis) => void;
-  updateTelcAiSummary: (sessionId: string, summary: string) => void;
-  updateTelcSummaryFeedback: (sessionId: string, feedback: SummaryFeedback) => void;
-  updateTelcDurationEvaluation: (sessionId: string, de: DurationEvaluation) => void;
-  updateTelcDiscussionPerformance: (sessionId: string, dp: DiscussionPerformance) => void;
-  updateTelcPreparationNotes: (sessionId: string, notes: PreparationNotes) => void;
-  updateTelcPresentationQuestions: (sessionId: string, qa: PresentationQuestion[]) => void;
-  updateTelcDiscussionStatement: (sessionId: string, statement: string) => void;
-  updateTelcDiscussionManagementScore: (sessionId: string, score: DiscussionManagementScore) => void;
-  updateTelcDiscussionTurns: (sessionId: string, turns: DiscussionTurn[]) => void;
-  // Reverse role (AI presentation mode)
-  aiPresentationHistory: AIPresentationSession[];
-  addAIPresentationSession: (session: AIPresentationSession) => void;
-  updateAIPresentationSummary: (sessionId: string, summary: string) => void;
-  updateAIPresentationSummaryEval: (sessionId: string, evaluation: AIPresentationSession['summaryEvaluation']) => void;
-  updateAIPresentationFollowUp: (sessionId: string, qa: FollowUpQA[]) => void;
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
@@ -42,10 +21,6 @@ interface TopicState {
   recordWordResults: (words: ComparedWord[]) => void;
   updateSentenceChunks: (sentenceId: string, chunks: ChunkData[]) => void;
   getSentenceChunks: (sentenceId: string) => ChunkData[];
-  updateTelcSettings: (settings: Partial<TelcSettings>) => void;
-  addTelcSession: (session: TelcExamSession) => void;
-  updateTelcEvaluation: (sessionId: string, evaluation: TelcEvaluation) => void;
-  updateTelcFollowUpQA: (sessionId: string, qa: FollowUpQA[]) => void;
   exportData: () => string;
   importData: (json: string) => boolean;
   resetAll: () => void;
@@ -67,122 +42,7 @@ export const useTopicStore = create<TopicState>()(
       },
       wordStats: {},
       sentenceChunks: {},
-      telcSettings: {
-        aiEnabled: false,
-        apiKey: '',
-        model: 'google/gemini-2.5-flash',
-        groqApiKey: '',
-        groqModel: 'llama-3.3-70b-versatile',
-      },
-      telcHistory: [],
-      telcFeedback: [],
-      aiPresentationHistory: [],
-      addTelcFeedback: (feedback) => {
-        set((state) => ({ telcFeedback: [feedback, ...state.telcFeedback] }));
-      },
-      getCalibrationStats: () => {
-        const feedback = get().telcFeedback;
-        const totalEvaluations = get().telcHistory.filter((s) => s.evaluation !== null).length;
-        const accurate = feedback.filter((f) => f.vote === 'accurate').length;
-        const tooStrict = feedback.filter((f) => f.vote === 'too-strict').length;
-        const tooGenerous = feedback.filter((f) => f.vote === 'too-generous').length;
-        return { totalEvaluations, accurate, tooStrict, tooGenerous };
-      },
-      updateTelcLanguageAnalysis: (sessionId, analysis) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, languageAnalysis: analysis } : s
-          ),
-        }));
-      },
-      updateTelcAiSummary: (sessionId, summary) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, aiSummary: summary } : s
-          ),
-        }));
-      },
-      updateTelcSummaryFeedback: (sessionId, feedback) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, summaryFeedback: feedback } : s
-          ),
-        }));
-      },
-      updateTelcDurationEvaluation: (sessionId, de) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, durationEvaluation: de } : s
-          ),
-        }));
-      },
-      updateTelcDiscussionPerformance: (sessionId, dp) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, discussionPerformance: dp } : s
-          ),
-        }));
-      },
-      updateTelcPreparationNotes: (sessionId, notes) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, preparationNotes: notes } : s
-          ),
-        }));
-      },
-      updateTelcPresentationQuestions: (sessionId, qa) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, presentationQuestions: qa } : s
-          ),
-        }));
-      },
-      updateTelcDiscussionStatement: (sessionId, statement) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, discussionStatement: statement } : s
-          ),
-        }));
-      },
-      updateTelcDiscussionManagementScore: (sessionId, score) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, discussionManagementScore: score } : s
-          ),
-        }));
-      },
-      updateTelcDiscussionTurns: (sessionId, turns) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, discussionTurns: turns } : s
-          ),
-        }));
-      },
-      // Reverse role (AI presentation mode)
-      addAIPresentationSession: (session) => {
-        set((state) => ({ aiPresentationHistory: [session, ...state.aiPresentationHistory] }));
-      },
-      updateAIPresentationSummary: (sessionId, summary) => {
-        set((state) => ({
-          aiPresentationHistory: state.aiPresentationHistory.map((s) =>
-            s.id === sessionId ? { ...s, userSummary: summary } : s
-          ),
-        }));
-      },
-      updateAIPresentationSummaryEval: (sessionId, evalData) => {
-        set((state) => ({
-          aiPresentationHistory: state.aiPresentationHistory.map((s) =>
-            s.id === sessionId ? { ...s, summaryEvaluation: evalData } : s
-          ),
-        }));
-      },
-      updateAIPresentationFollowUp: (sessionId, qa) => {
-        set((state) => ({
-          aiPresentationHistory: state.aiPresentationHistory.map((s) =>
-            s.id === sessionId ? { ...s, followUpQA: qa } : s
-          ),
-        }));
-      },
+
       addTopic: (topicData, sentences) => {
         const newTopic: Topic = {
           ...topicData,
@@ -212,7 +72,7 @@ export const useTopicStore = create<TopicState>()(
       updateSentenceScore: (topicId, sentenceId, score) => {
         const now = Date.now();
         const ONE_DAY = 24 * 60 * 60 * 1000;
-        
+
         let nextReviewDays = 0;
         if (score >= 95) nextReviewDays = 7;
         else if (score >= 90) nextReviewDays = 3;
@@ -289,7 +149,6 @@ export const useTopicStore = create<TopicState>()(
           };
         });
       },
-
       recordWordResults: (words) => {
         set((state) => {
           const now = Date.now();
@@ -341,35 +200,9 @@ export const useTopicStore = create<TopicState>()(
           sentenceChunks: { ...state.sentenceChunks, [sentenceId]: chunks },
         }));
       },
-
       getSentenceChunks: (sentenceId) => {
         return get().sentenceChunks[sentenceId] || [];
       },
-
-      updateTelcSettings: (settings) => {
-        set((state) => ({ telcSettings: { ...state.telcSettings, ...settings } }));
-      },
-
-      addTelcSession: (session) => {
-        set((state) => ({ telcHistory: [session, ...state.telcHistory] }));
-      },
-
-      updateTelcEvaluation: (sessionId, evaluation) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, evaluation, aiAvailable: true } : s
-          ),
-        }));
-      },
-
-      updateTelcFollowUpQA: (sessionId, qa) => {
-        set((state) => ({
-          telcHistory: state.telcHistory.map((s) =>
-            s.id === sessionId ? { ...s, followUpQA: qa } : s
-          ),
-        }));
-      },
-
       exportData: () => {
         const data = {
           topics: get().topics,

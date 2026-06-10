@@ -53,7 +53,7 @@ export default function Exam() {
 
   // -----------------------------------------------------------------
   // Speech-recognition helpers (single-utterance, auto-restart)
-  // Matches the pattern in SpeechRecognition.tsx and TelcExam.tsx.
+  // Matches the pattern in SpeechRecognition.tsx.
   // continuous: false + interimResults: false is the only config that
   // works reliably on Android Chrome / Samsung devices.
   // -----------------------------------------------------------------
