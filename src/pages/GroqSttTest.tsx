@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Mic, Square, Send, Trash2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -17,6 +17,14 @@ export default function GroqSttTest() {
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef(0);
+  // Always mirrors transcript state (not stale in closures)
+  const transcriptRef = useRef('');
+
+  // Sync ref whenever state changes
+  useEffect(() => {
+    transcriptRef.current = transcript;
+    console.log('RENDER transcript =', JSON.stringify(transcript));
+  }, [transcript]);
 
   const stopRecording = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -29,6 +37,8 @@ export default function GroqSttTest() {
   }, []);
 
   const startRecording = useCallback(async () => {
+    console.log('=== startRecording ===');
+    console.log('transcriptRef.current (BEFORE)', JSON.stringify(transcriptRef.current));
     try {
       setStatus('recording');
       setErrorMsg('');
@@ -36,6 +46,7 @@ export default function GroqSttTest() {
       chunksRef.current = [];
       startTimeRef.current = Date.now();
       setElapsed(0);
+      console.log('transcriptRef.current (AFTER reset block)', JSON.stringify(transcriptRef.current));
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -48,6 +59,8 @@ export default function GroqSttTest() {
       };
 
       recorder.onstop = async () => {
+        console.log('=== onstop ===');
+        console.log('transcriptRef.current (BEFORE fetch)', JSON.stringify(transcriptRef.current));
         if (timerRef.current) clearInterval(timerRef.current);
         setStatus('sending');
 
@@ -64,7 +77,13 @@ export default function GroqSttTest() {
             setErrorMsg(data.error || `HTTP ${res.status}`);
             setStatus('error');
           } else {
-            setTranscript(prev => (prev ? prev + ' ' : '') + (data.text || ''));
+            console.log('STOP APPEND =', JSON.stringify(data.text));
+            setTranscript(prev => {
+              const next = (prev ? prev + ' ' : '') + (data.text || '');
+              console.log('STOP BEFORE =', JSON.stringify(prev));
+              console.log('STOP AFTER  =', JSON.stringify(next));
+              return next;
+            });
             setStatus('done');
           }
         } catch {
@@ -85,7 +104,9 @@ export default function GroqSttTest() {
           stopRecording();
         }
       }, 30000);
+      console.log('transcriptRef.current (AFTER all setup)', JSON.stringify(transcriptRef.current));
     } catch {
+      console.log('startRecording CATCH — mic denied or error');
       setErrorMsg('Microphone access denied or unavailable');
       setStatus('error');
     }
