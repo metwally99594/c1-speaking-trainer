@@ -123,6 +123,7 @@ export default function TelcExam() {
 
   // Audio Recording
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  void setAudioBlob; // keep reference alive even if unused in this test build
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -344,25 +345,18 @@ export default function TelcExam() {
     setWpm(0);
     startTimeRef.current = Date.now();
 
-    // ---- Acquire mic first (MediaRecorder), then start speech recognition --
+    // ---- TEMPORARILY skip MediaRecorder to test if mic is exclusive ----
+    // ---- (SpeechRecognition will use the mic directly)               ----
     audioChunksRef.current = [];
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        stream.getTracks().forEach((t) => t.stop());
-      };
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
-    } catch (err) {
-      console.log('getUserMedia failed', err);
-      // Audio capture failure is non-critical — exam continues without it
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const perm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        console.log('mic permission state', perm.state);
+      } catch {
+        // permissions.query not supported
+      }
     }
+    console.log('MediaRecorder skipped for testing');
 
     // Start speech recognition only after mic stream is acquired
     keepAliveRef.current = true;
