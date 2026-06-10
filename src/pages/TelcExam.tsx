@@ -354,7 +354,8 @@ export default function TelcExam() {
 
   // -----------------------------------------------------------------
   // startRecording – called by the "Mikrofon einschalten" button.
-  // With USE_GROQ_STT=true: starts MediaRecorder, sends audio to Groq on stop.
+  // With USE_GROQ_STT=true: starts MediaRecorder with 8s timeslice,
+  // sends each chunk to Groq Whisper and accumulates transcript live.
   // With USE_GROQ_STT=false: uses Web Speech API (original behavior).
   // -----------------------------------------------------------------
   const startRecording = useCallback(async () => {
@@ -369,51 +370,66 @@ export default function TelcExam() {
     startTimeRef.current = Date.now();
 
     if (USE_GROQ_STT) {
-      // ---- Groq Whisper path ----
+      // ---- Groq Whisper path (timeslice chunking) ----
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunksRef.current = [];
+
+        // Queue for sequential chunk processing
+        const pendingChunks: Blob[] = [];
+        let processing = false;
+
+        async function processQueue() {
+          if (processing) return;
+          processing = true;
+          while (pendingChunks.length > 0) {
+            const chunk = pendingChunks.shift()!;
+            const blob = new Blob([chunk], { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('file', blob, 'chunk.webm');
+
+            try {
+              const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+              const data = await res.json();
+              if (res.ok && data.text) {
+                const sep = transcriptRef.current ? ' ' : '';
+                transcriptRef.current += sep + data.text.trim();
+                console.log('Groq chunk transcript:', data.text.trim());
+                setTranscript(transcriptRef.current);
+                const words = transcriptRef.current.split(/\s+/).filter(Boolean).length;
+                setWordCount(words);
+                const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
+                if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
+              } else if (!res.ok) {
+                console.log('Groq chunk error', res.status, data.error);
+              }
+            } catch (err) {
+              console.log('Groq chunk fetch error', err);
+            }
+          }
+          processing = false;
+        }
 
         const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
         mediaRecorderRef.current = recorder;
 
         recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunksRef.current.push(e.data);
-        };
-
-        recorder.onstop = async () => {
-          console.log('MediaRecorder onstop — sending to Groq');
-          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          const formData = new FormData();
-          formData.append('file', blob, 'recording.webm');
-
-          try {
-            const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
-            const data = await res.json();
-            if (!res.ok) {
-              setAiError(data.error || `Groq API error (${res.status})`);
-              setProcessing(false);
-              setPhase('error');
-            } else {
-              transcriptRef.current = data.text || '';
-              console.log('Groq transcript:', transcriptRef.current);
-              setTranscript(transcriptRef.current.trim());
-              const words = transcriptRef.current.trim().split(/\s+/).filter(Boolean).length;
-              setWordCount(words);
-              const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
-              if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
-              setProcessing(false);
-              setPhase('completed');
-            }
-          } catch (err) {
-            console.log('Groq fetch error', err);
-            setAiError('Network error contacting Groq API');
-            setProcessing(false);
-            setPhase('error');
+          if (e.data.size > 0) {
+            pendingChunks.push(e.data);
+            processQueue();
           }
         };
 
-        recorder.start();
+        recorder.onstop = async () => {
+          console.log('MediaRecorder onstop');
+          // Wait for remaining chunks to finish
+          while (pendingChunks.length > 0 || processing) {
+            await new Promise((r) => setTimeout(r, 200));
+          }
+          setProcessing(false);
+          setPhase('completed');
+        };
+
+        recorder.start(8000); // 8-second timeslices
       } catch {
         setAiError('Microphone access denied or unavailable');
         setPhase('error');
