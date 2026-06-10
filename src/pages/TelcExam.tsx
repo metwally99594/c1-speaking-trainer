@@ -3,8 +3,8 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import {
-  Mic, MicOff, Clock, Trophy, ChevronDown, ChevronUp,
-  Loader2, AlertCircle, MessageSquare, Gauge, BookOpen,
+  Mic, Square, Clock, Trophy, ChevronDown, ChevronUp,
+  Loader2, AlertCircle, Trash2, MessageSquare, Gauge, BookOpen,
   CheckCircle2, XCircle, HelpCircle, RefreshCw,
   FolderOpen, Edit3, Sparkles, ArrowRight,
   MessageCircle, Send
@@ -12,6 +12,7 @@ import {
 import { cn } from '../utils/cn';
 import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, generateAiSummary, generatePresentationQuestions, OpenRouterError } from '../services/openRouter';
 import * as groq from '../services/groq';
+import { useGroqStt } from '../hooks/useGroqStt';
 import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DurationEvaluation, PreparationNotes, PresentationQuestion } from '../models/types';
 import { analyzeRedemittel } from '../utils/redemittelAnalyzer';
 import { analyzeVocabulary } from '../utils/vocabularyAnalyzer';
@@ -105,11 +106,10 @@ export default function TelcExam() {
 
   // Speech
   const [transcript, setTranscript] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [processing, setProcessing] = useState(false);
+  const [, setIsRecording] = useState(false);
+  const [, setProcessing] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [wpm, setWpm] = useState(0);
-  const [interimTranscript] = useState('');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const keepAliveRef = useRef(false);
@@ -163,6 +163,40 @@ export default function TelcExam() {
 
   const startTimeRef = useRef(0);
   const transcriptRef = useRef('');
+
+  // Groq STT hook (always called per React rules)
+  const groqStt = useGroqStt({ timeslice: 8000 });
+
+  // Sync isProcessing from the hook → TELC processing state
+  useEffect(() => {
+    if (USE_GROQ_STT) setProcessing(groqStt.isProcessing);
+  }, [groqStt.isProcessing]);
+
+  // Sync transcript from the hook → TELC transcript + word count + WPM
+  useEffect(() => {
+    if (!USE_GROQ_STT) return;
+    if (groqStt.transcript !== transcriptRef.current) {
+      transcriptRef.current = groqStt.transcript;
+      setTranscript(groqStt.transcript);
+      const words = groqStt.transcript.split(/\s+/).filter(Boolean).length;
+      setWordCount(words);
+      const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
+      if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
+    }
+  }, [groqStt.transcript]);
+
+  // Transition to completed phase when Groq finishes processing
+  const groqCompletedRef = useRef(false);
+  useEffect(() => {
+    if (!USE_GROQ_STT) return;
+    if (!groqStt.isRecording && !groqStt.isProcessing && !groqCompletedRef.current) {
+      groqCompletedRef.current = true;
+      setPhase('completed');
+    }
+    if (groqStt.isRecording || groqStt.isProcessing) {
+      groqCompletedRef.current = false;
+    }
+  }, [groqStt.isRecording, groqStt.isProcessing]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -228,10 +262,7 @@ export default function TelcExam() {
     stopTimer();
 
     if (USE_GROQ_STT) {
-      // Stop the MediaRecorder — onstop handler transcribes via Groq then sets phase
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
-      }
+      groqStt.stopRecording();
       setIsRecording(false);
       setProcessing(true);
     } else {
@@ -373,66 +404,9 @@ export default function TelcExam() {
     startTimeRef.current = Date.now();
 
     if (USE_GROQ_STT) {
-      // ---- Groq Whisper path (timeslice chunking) ----
+      // ---- Groq Whisper path (uses shared useGroqStt hook) ----
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-        // Queue for sequential chunk processing
-        const pendingChunks: Blob[] = [];
-        let processing = false;
-
-        async function processQueue() {
-          if (processing) return;
-          processing = true;
-          while (pendingChunks.length > 0) {
-            const chunk = pendingChunks.shift()!;
-            const blob = new Blob([chunk], { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append('file', blob, 'chunk.webm');
-
-            try {
-              const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
-              const data = await res.json();
-              if (res.ok && data.text) {
-                const sep = transcriptRef.current ? ' ' : '';
-                transcriptRef.current += sep + data.text.trim();
-                console.log('Groq chunk transcript:', data.text.trim());
-                setTranscript(transcriptRef.current);
-                const words = transcriptRef.current.split(/\s+/).filter(Boolean).length;
-                setWordCount(words);
-                const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
-                if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
-              } else if (!res.ok) {
-                console.log('Groq chunk error', res.status, data.error);
-              }
-            } catch (err) {
-              console.log('Groq chunk fetch error', err);
-            }
-          }
-          processing = false;
-        }
-
-        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-        mediaRecorderRef.current = recorder;
-
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            pendingChunks.push(e.data);
-            processQueue();
-          }
-        };
-
-        recorder.onstop = async () => {
-          console.log('MediaRecorder onstop');
-          // Wait for remaining chunks to finish
-          while (pendingChunks.length > 0 || processing) {
-            await new Promise((r) => setTimeout(r, 200));
-          }
-          setProcessing(false);
-          setPhase('completed');
-        };
-
-        recorder.start(8000); // 8-second timeslices
+        await groqStt.startRecording();
       } catch {
         setAiError('Microphone access denied or unavailable');
         setPhase('error');
@@ -1067,7 +1041,6 @@ export default function TelcExam() {
               )}>{formatTime(remaining)}</span>
             </div>
           </div>
-          {/* Progress bar */}
           <div className="mt-4 h-2 bg-gray-800 rounded-full overflow-hidden">
             <div
               className={cn(
@@ -1137,56 +1110,98 @@ export default function TelcExam() {
           </div>
         )}
 
-        {/* Live Stats */}
-        <div className="flex gap-4 mb-6">
-          <div className="flex-1 bg-gray-950 border border-gray-900 rounded-xl p-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">Wörter</span>
-            <span className="text-xl font-black text-white">{wordCount}</span>
-          </div>
-          <div className="flex-1 bg-gray-950 border border-gray-900 rounded-xl p-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block mb-1">WPM</span>
-            <span className="text-xl font-black text-white">{wpm}</span>
-          </div>
-        </div>
-
-        {/* Transcript Display */}
-        <div className="bg-gray-950 border border-gray-900 rounded-2xl p-6 mb-6 shadow-xl min-h-[120px]">
-          <p className="text-sm text-gray-300 leading-relaxed">
-            {processing ? (
-              <span className="text-yellow-400 italic flex items-center gap-2">
-                <Loader2 size={16} className="animate-spin" />
-                Transkription wird verarbeitet...
+        {/* GroqSttTest-style Status + Controls panel */}
+        <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-zinc-400">
+              Status:{' '}
+              <span
+                className={cn('font-medium', {
+                  'text-zinc-300': !groqStt.isRecording && !groqStt.isProcessing && !groqStt.transcript,
+                  'text-red-400': groqStt.isRecording,
+                  'text-yellow-400': groqStt.isProcessing,
+                  'text-emerald-400': !groqStt.isRecording && !groqStt.isProcessing && !!groqStt.transcript,
+                })}
+              >
+                {groqStt.isRecording && `Aufnahme… ${elapsed}s`}
+                {groqStt.isProcessing && 'Transkribiere…'}
+                {!groqStt.isRecording && !groqStt.isProcessing && !groqStt.transcript && 'Bereit'}
+                {!groqStt.isRecording && !groqStt.isProcessing && !!groqStt.transcript && 'Transkription erhalten'}
               </span>
-            ) : transcript || interimTranscript || (
-              <span className="text-gray-600 italic">Ihre Rede erscheint hier...</span>
+            </div>
+            <div className="flex items-center gap-4">
+              {groqStt.isRecording && (
+                <span className="inline-flex items-center gap-2 text-red-400 text-sm">
+                  <span className="size-2 rounded-full bg-red-500 animate-pulse" />
+                  LIVE
+                </span>
+              )}
+              <div className="flex gap-3 text-right">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block">Wörter</span>
+                  <span className="text-lg font-black text-white">{wordCount}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block">WPM</span>
+                  <span className="text-lg font-black text-white">{wpm}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            {!groqStt.isRecording && !groqStt.isProcessing && !groqStt.transcript && (
+              <button
+                onClick={startRecording}
+                disabled={elapsed >= TELC_DURATION}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium transition-colors disabled:opacity-50"
+              >
+                <Mic size={18} />
+                Start
+              </button>
             )}
-          </p>
+            {groqStt.isRecording && (
+              <button
+                onClick={handleStopRecording}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 font-medium transition-colors"
+              >
+                <Square size={18} />
+                Stop
+              </button>
+            )}
+            {(groqStt.isProcessing || (groqStt.transcript && !groqStt.isRecording)) && (
+              <button
+                onClick={() => { groqStt.resetTranscript(); }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-200 font-medium transition-colors"
+              >
+                <Trash2 size={18} />
+                Reset
+              </button>
+            )}
+            {groqStt.isProcessing && (
+              <div className="flex items-center gap-2 px-5 py-2.5 text-zinc-400">
+                <Loader2 size={18} className="animate-spin" />
+                Transkribiere…
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Recording Controls */}
-        <div className="flex gap-4">
-          {processing ? (
-            <div className="flex-1 flex items-center justify-center gap-3 bg-zinc-800 text-zinc-400 py-5 rounded-2xl font-bold">
-              <Loader2 size={24} className="animate-spin" />
-              Transkribiere mit Groq Whisper...
+        {/* GroqSttTest-style Transcript panel */}
+        <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 space-y-3">
+          <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+            <Send size={14} />
+            Transkript
+          </h2>
+          {groqStt.transcript ? (
+            <p className="text-zinc-100 whitespace-pre-wrap leading-relaxed">{groqStt.transcript}</p>
+          ) : groqStt.isProcessing ? (
+            <div className="flex items-center gap-2 text-zinc-500 text-sm">
+              <Loader2 size={16} className="animate-spin" />
+              Warte auf Antwort…
             </div>
-          ) : !isRecording ? (
-            <button
-              onClick={startRecording}
-              disabled={elapsed >= TELC_DURATION}
-              className="flex-1 flex items-center justify-center gap-3 bg-purple-600 hover:bg-purple-700 text-white py-5 rounded-2xl font-bold transition-all shadow-lg shadow-purple-900/20 disabled:opacity-50"
-            >
-              <Mic size={24} />
-              Mikrofon einschalten
-            </button>
           ) : (
-            <button
-              onClick={handleStopRecording}
-              className="flex-1 flex items-center justify-center gap-3 bg-red-600 hover:bg-red-700 text-white py-5 rounded-2xl font-bold transition-all shadow-lg shadow-red-900/20"
-            >
-              <MicOff size={24} />
-              Präsentation beenden
-            </button>
+            <p className="text-zinc-500 text-sm">Drücken Sie "Start" und sprechen Sie.</p>
           )}
         </div>
       </div>
