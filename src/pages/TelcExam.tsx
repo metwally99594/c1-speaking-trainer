@@ -269,10 +269,11 @@ export default function TelcExam() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
+      console.log('resultIndex:', event.resultIndex, 'results.length:', event.results.length);
       let full = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
-          full += event.results[i][0].transcript + ' ';
+          full = event.results[i][0].transcript + ' ';
         }
       }
       if (!full) {
@@ -280,10 +281,13 @@ export default function TelcExam() {
         return;
       }
       console.log('onresult (final)', full.trim());
+      console.log('transcriptRef BEFORE', transcriptRef.current);
       hasReceivedResult = true;
 
-      // Accumulate into the mutable ref first, then sync to state
-      transcriptRef.current = transcriptRef.current + full;
+      // With continuous:true each final result contains the complete text so far.
+      // Replace rather than append to avoid duplication.
+      transcriptRef.current = full;
+      console.log('transcriptRef AFTER', transcriptRef.current.trim());
       setTranscript(transcriptRef.current.trim());
 
       // Word count & WPM
