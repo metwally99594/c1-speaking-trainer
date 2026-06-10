@@ -106,8 +106,6 @@ export default function TelcExam() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const keepAliveRef = useRef(false);
-  // Monotonic counter to prevent re-processing the same result index
-  const lastProcessedIndexRef = useRef(0);
 
   // Structure helper
   const [structureOpen, setStructureOpen] = useState(true);
@@ -269,27 +267,42 @@ export default function TelcExam() {
       setIsRecording(true);
     };
 
+    // Track the previous final from this session for prefix-aware dedup
+    let prevFinal = '';
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       console.log('resultIndex:', event.resultIndex, 'results.length:', event.results.length);
-      let appended = false;
-      // Process only new/changed result indices (monotonic guard)
-      for (let i = Math.max(event.resultIndex, lastProcessedIndexRef.current); i < event.results.length; ++i) {
+
+      // Find the last final result (most complete text in this batch)
+      let latestFinal = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
-          const segment = event.results[i][0].transcript;
-          console.log('appending index', i, 'segment:', segment);
-          transcriptRef.current += segment + ' ';
-          appended = true;
+          console.log('final index', i, ':', event.results[i][0].transcript);
+          latestFinal = event.results[i][0].transcript;
         }
       }
-      lastProcessedIndexRef.current = event.results.length;
-      if (!appended) {
-        // interim
+
+      if (!latestFinal) {
         console.log('onresult (interim)', event.results[event.resultIndex][0].transcript);
         return;
       }
+
       hasReceivedResult = true;
-      console.log('transcriptRef AFTER', transcriptRef.current.trim());
+
+      // Prefix-aware dedup: if latestFinal expands prevFinal, append only the suffix difference.
+      // Otherwise append as independent new content (new session, or recognizer restart).
+      if (latestFinal.startsWith(prevFinal)) {
+        const suffix = latestFinal.slice(prevFinal.length).trim();
+        if (suffix) {
+          transcriptRef.current += (transcriptRef.current ? ' ' : '') + suffix;
+        }
+      } else {
+        transcriptRef.current += (transcriptRef.current ? ' ' : '') + latestFinal;
+      }
+      prevFinal = latestFinal;
+
+      console.log('transcriptRef AFTER', transcriptRef.current);
       setTranscript(transcriptRef.current.trim());
 
       // Word count & WPM
@@ -320,9 +333,6 @@ export default function TelcExam() {
         console.log('restart suppressed (no result received)');
       }
     };
-
-    // Reset monotonic index for the new session (each session starts at 0)
-    lastProcessedIndexRef.current = 0;
 
     recognitionRef.current = recognition;
     console.log('recognition.start()');
