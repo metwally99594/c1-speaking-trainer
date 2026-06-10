@@ -215,6 +215,7 @@ export default function TelcExam() {
   }, [stopTimer]);
 
   const handleStopRecording = useCallback(() => {
+    console.log('handleStopRecording');
     // Stop the keep-alive loop FIRST so onend does not restart
     keepAliveRef.current = false;
 
@@ -240,6 +241,7 @@ export default function TelcExam() {
   // then auto-restarts via onend as long as keepAliveRef is true.
   // -----------------------------------------------------------------
   const startNewSession = useCallback(() => {
+    console.log('startNewSession');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -252,12 +254,14 @@ export default function TelcExam() {
     recognition.interimResults = false; // final results only
 
     recognition.onstart = () => {
+      console.log('onstart');
       setIsRecording(true);
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       const result = event.results[0][0].transcript + ' ';
+      console.log('onresult', result.trim());
 
       // Accumulate into the mutable ref first, then sync to state
       transcriptRef.current = transcriptRef.current + result;
@@ -272,6 +276,7 @@ export default function TelcExam() {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
+      console.log('onerror', event.error);
       // Stop the restart loop if the user denied mic permission
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         keepAliveRef.current = false;
@@ -280,6 +285,7 @@ export default function TelcExam() {
     };
 
     recognition.onend = () => {
+      console.log('onend');
       setIsRecording(false);
       if (keepAliveRef.current) {
         // Restart for the next utterance — transcript keeps accumulating
@@ -288,6 +294,7 @@ export default function TelcExam() {
     };
 
     recognitionRef.current = recognition;
+    console.log('recognition.start()');
     recognition.start();
   }, []);
 
@@ -297,6 +304,7 @@ export default function TelcExam() {
   // (Only the recognition config changed; MediaRecorder is untouched.)
   // -----------------------------------------------------------------
   const startRecording = useCallback(async () => {
+    console.log('startRecording');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
