@@ -242,6 +242,8 @@ export default function TelcExam() {
   // -----------------------------------------------------------------
   const startNewSession = useCallback(() => {
     console.log('startNewSession');
+    console.log('visibilityState', document.visibilityState);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SpeechRecognitionAPI =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -250,8 +252,12 @@ export default function TelcExam() {
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'de-DE';
+    console.log('recognition.lang', recognition.lang);
     recognition.continuous = false;     // single-utterance — works on Android Chrome
     recognition.interimResults = false; // final results only
+
+    // Track whether at least one result was received in this session
+    let hasReceivedResult = false;
 
     recognition.onstart = () => {
       console.log('onstart');
@@ -262,6 +268,7 @@ export default function TelcExam() {
     recognition.onresult = (event: any) => {
       const result = event.results[0][0].transcript + ' ';
       console.log('onresult', result.trim());
+      hasReceivedResult = true;
 
       // Accumulate into the mutable ref first, then sync to state
       transcriptRef.current = transcriptRef.current + result;
@@ -287,9 +294,11 @@ export default function TelcExam() {
     recognition.onend = () => {
       console.log('onend');
       setIsRecording(false);
-      if (keepAliveRef.current) {
-        // Restart for the next utterance — transcript keeps accumulating
-        setTimeout(startNewSession, 200);
+      // Only restart if we ever received a result — breaks the start→onstart→onend cycle
+      if (keepAliveRef.current && hasReceivedResult) {
+        setTimeout(startNewSession, 1000);
+      } else {
+        console.log('restart suppressed (no result received)');
       }
     };
 
@@ -314,6 +323,8 @@ export default function TelcExam() {
       return;
     }
 
+    console.log('userAgent', navigator.userAgent);
+
     // Reset transcript for this session
     transcriptRef.current = '';
     setTranscript('');
@@ -321,11 +332,7 @@ export default function TelcExam() {
     setWpm(0);
     startTimeRef.current = Date.now();
 
-    // Start the keep-alive recognition loop
-    keepAliveRef.current = true;
-    startNewSession();
-
-    // ---- Audio recording (unchanged) ----------------------------------------
+    // ---- Acquire mic first (MediaRecorder), then start speech recognition --
     audioChunksRef.current = [];
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -340,9 +347,14 @@ export default function TelcExam() {
       };
       mediaRecorder.start();
       mediaRecorderRef.current = mediaRecorder;
-    } catch {
-      // Audio capture failure is non-critical – exam continues without it
+    } catch (err) {
+      console.log('getUserMedia failed', err);
+      // Audio capture failure is non-critical — exam continues without it
     }
+
+    // Start speech recognition only after mic stream is acquired
+    keepAliveRef.current = true;
+    startNewSession();
 
     // Start the presentation countdown timer
     startTimer();
