@@ -13,6 +13,7 @@ import TelcExam from './pages/TelcExam';
 import TelcHistory from './pages/TelcHistory';
 import TelcCalibration from './pages/TelcCalibration';
 import TelcBenchmark from './pages/TelcBenchmark';
+import GroqSttTest from './pages/GroqSttTest';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
             <Route path="/telc-history" element={<TelcHistory />} />
             <Route path="/telc-calibration" element={<TelcCalibration />} />
             <Route path="/telc-benchmark" element={<TelcBenchmark />} />
+            <Route path="/groq-stt-test" element={<GroqSttTest />} />
           </Routes>
         </Layout>
       </BrowserRouter>
