@@ -321,6 +321,9 @@ export default function TelcExam() {
       }
     };
 
+    // Reset monotonic index for the new session (each session starts at 0)
+    lastProcessedIndexRef.current = 0;
+
     recognitionRef.current = recognition;
     console.log('recognition.start()');
     recognition.start();
