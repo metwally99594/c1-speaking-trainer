@@ -298,7 +298,7 @@ export default function Settings() {
 
            {telcSettings.aiEnabled && (
              <div className="space-y-6">
-               {/* API Key */}
+               {/* OpenRouter API Key */}
                <div className="space-y-3">
                  <label className="block text-sm font-medium text-gray-400">
                    OpenRouter API Schlüssel
@@ -323,13 +323,13 @@ export default function Settings() {
                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-500 hover:underline">
                      openrouter.ai/keys
                    </a>{' '}
-                   um einen API-Schlüssel zu erhalten. Der Schlüssel wird lokal in Ihrem Browser gespeichert.
+                   um einen API-Schlüssel zu erhalten.
                  </p>
                </div>
 
-               {/* Model Selection */}
+               {/* OpenRouter Model Selection */}
                <div className="space-y-3">
-                 <label className="block text-sm font-medium text-gray-400">KI-Modell</label>
+                 <label className="block text-sm font-medium text-gray-400">OpenRouter KI-Modell</label>
                  <select
                    value={telcSettings.model}
                    onChange={(e) => updateTelcSettings({ model: e.target.value })}
@@ -339,6 +339,50 @@ export default function Settings() {
                    <option value="openai/gpt-4.1-mini">OpenAI GPT-4.1 Mini</option>
                    <option value="anthropic/claude-sonnet-4">Anthropic Claude Sonnet 4</option>
                    <option value="deepseek-chat">DeepSeek Chat</option>
+                 </select>
+               </div>
+
+               {/* Groq API Key */}
+               <div className="space-y-3 pt-4 border-t border-gray-800">
+                 <label className="block text-sm font-medium text-gray-400">
+                   Groq API Schlüssel <span className="text-emerald-500">(empfohlen)</span>
+                 </label>
+                 <div className="flex gap-2">
+                   <input
+                     type={keyVisible ? 'text' : 'password'}
+                     value={telcSettings.groqApiKey}
+                     onChange={(e) => updateTelcSettings({ groqApiKey: e.target.value })}
+                     placeholder="gsk_..."
+                     className="flex-1 bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-mono text-sm"
+                   />
+                   <button
+                     onClick={() => setKeyVisible(!keyVisible)}
+                     className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-gray-400 hover:text-white transition-colors text-xs"
+                   >
+                     {keyVisible ? 'Hide' : 'Show'}
+                   </button>
+                 </div>
+                 <p className="text-xs text-gray-600">
+                   Besuchen Sie{' '}
+                   <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:underline">
+                     console.groq.com/keys
+                   </a>{' '}
+                   um einen API-Schlüssel zu erhalten. Wird für Sprachtranskription und KI-Auswertung verwendet.
+                 </p>
+               </div>
+
+               {/* Groq Model Selection */}
+               <div className="space-y-3">
+                 <label className="block text-sm font-medium text-gray-400">Groq KI-Modell</label>
+                 <select
+                   value={telcSettings.groqModel}
+                   onChange={(e) => updateTelcSettings({ groqModel: e.target.value })}
+                   className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                 >
+                   <option value="llama-3.3-70b-versatile">Llama 3.3 70B (empfohlen)</option>
+                   <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                   <option value="llama-3.1-8b-instant">Llama 3.1 8B (schnell)</option>
+                   <option value="gemma2-9b-it">Gemma 2 9B</option>
                  </select>
                </div>
 
