@@ -31,7 +31,6 @@ export default function GroqSttTest() {
   const startRecording = useCallback(async () => {
     try {
       setStatus('recording');
-      setTranscript('');
       setErrorMsg('');
       setLatency(null);
       chunksRef.current = [];
@@ -65,7 +64,7 @@ export default function GroqSttTest() {
             setErrorMsg(data.error || `HTTP ${res.status}`);
             setStatus('error');
           } else {
-            setTranscript(data.text || '');
+            setTranscript(prev => (prev ? prev + ' ' : '') + (data.text || ''));
             setStatus('done');
           }
         } catch {
