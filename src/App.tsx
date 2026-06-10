@@ -10,6 +10,7 @@ import ExamHistory from './pages/ExamHistory';
 import WeakWords from './pages/WeakWords';
 import Settings from './pages/Settings';
 import GroqSttTest from './pages/GroqSttTest';
+import TELCApp from './components/telc/TELCModule';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
             <Route path="/words" element={<WeakWords />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/groq-stt-test" element={<GroqSttTest />} />
+            <Route path="/telc" element={<TELCApp />} />
           </Routes>
         </Layout>
       </BrowserRouter>

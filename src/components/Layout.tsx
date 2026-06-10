@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Settings, AlertTriangle } from 'lucide-react';
+import { BookOpen, Settings, AlertTriangle, Star } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,6 +18,10 @@ export function Layout({ children }: LayoutProps) {
           </Link>
           <div className="flex gap-4 sm:gap-6 items-center">
             <Link to="/" className="text-sm font-medium hover:text-white transition-colors">Dashboard</Link>
+            <Link to="/telc" className="flex items-center gap-1 text-sm font-medium text-purple-400 hover:text-purple-300 transition-colors">
+              <Star size={14} />
+              TELC
+            </Link>
             <Link to="/words" className="flex items-center gap-1 text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors">
               <AlertTriangle size={14} />
               Words
