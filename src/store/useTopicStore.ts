@@ -71,6 +71,8 @@ export const useTopicStore = create<TopicState>()(
         aiEnabled: false,
         apiKey: '',
         model: 'google/gemini-2.5-flash',
+        groqApiKey: '',
+        groqModel: 'llama-3.3-70b-versatile',
       },
       telcHistory: [],
       telcFeedback: [],

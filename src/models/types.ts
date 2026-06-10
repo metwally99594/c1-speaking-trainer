@@ -63,6 +63,8 @@ export interface TelcSettings {
   aiEnabled: boolean;
   apiKey: string;
   model: string;
+  groqApiKey: string;
+  groqModel: string;
 }
 
 export interface TelcGrade {

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { evaluateTelcPresentation, generateFollowUpQuestions, evaluateFollowUpAnswers, generateDiscussionResponse, generateAiSummary, generatePresentationQuestions, OpenRouterError } from '../services/openRouter';
+import * as groq from '../services/groq';
 import type { TelcEvaluation, FollowUpQA, DiscussionTurn, TelcExamSession, TelcFeedback, TelcLanguageAnalysis, SummaryFeedback, DurationEvaluation, PreparationNotes, PresentationQuestion } from '../models/types';
 import { analyzeRedemittel } from '../utils/redemittelAnalyzer';
 import { analyzeVocabulary } from '../utils/vocabularyAnalyzer';
@@ -18,6 +19,8 @@ import { analyzeArgumentation } from '../utils/argumentationAnalyzer';
 
 // Feature flag: use Groq Whisper instead of browser Web Speech API
 const USE_GROQ_STT = true;
+// Feature flag: use Groq LLM instead of OpenRouter for AI evaluation
+const USE_GROQ = true;
 
 const TELC_DISCUSSION_TASKS = [
   '1. Wie verstehen Sie diese Aussage?',
@@ -504,8 +507,11 @@ export default function TelcExam() {
     if (!sessionId) addTelcSession(session);
     setSessionId(session.id);
 
-    if (!telcSettings.aiEnabled || !telcSettings.apiKey) {
-      setAiError('AI evaluation is not configured. Enable it in Settings and add an API key.');
+    const aiKeyOk = USE_GROQ ? telcSettings.groqApiKey : telcSettings.apiKey;
+    if (!telcSettings.aiEnabled || !aiKeyOk) {
+      setAiError(USE_GROQ
+        ? 'AI evaluation is not configured. Enable Groq in Settings and add an API key.'
+        : 'AI evaluation is not configured. Enable it in Settings and add an API key.');
       setPhase('error');
       return;
     }
@@ -513,9 +519,13 @@ export default function TelcExam() {
     setPhase('evaluating');
     setAiError('');
 
+    const aiConf = USE_GROQ
+      ? { apiKey: telcSettings.groqApiKey, model: telcSettings.groqModel }
+      : { apiKey: telcSettings.apiKey, model: telcSettings.model };
+
     try {
-      const result = await evaluateTelcPresentation(
-        { apiKey: telcSettings.apiKey, model: telcSettings.model },
+      const result = await (USE_GROQ ? groq.evaluateTelcPresentation : evaluateTelcPresentation)(
+        aiConf,
         topic,
         session.transcript,
         session.duration,
@@ -548,8 +558,8 @@ export default function TelcExam() {
 
       // Generate follow-up questions
       try {
-        const questionsResult = await generateFollowUpQuestions(
-          { apiKey: telcSettings.apiKey, model: telcSettings.model },
+        const questionsResult = await (USE_GROQ ? groq.generateFollowUpQuestions : generateFollowUpQuestions)(
+          aiConf,
           topic,
           session.transcript
         );
@@ -564,11 +574,12 @@ export default function TelcExam() {
         setPhase('evaluation-done');
       }
     } catch (err) {
-      if (err instanceof OpenRouterError) {
-        if (err.code === 'NO_KEY') setAiError('API key is missing. Add it in Settings.');
-        else if (err.code === 'RATE_LIMIT') setAiError('Rate limit exceeded. Please try again later.');
-        else if (err.code === 'TIMEOUT') setAiError('Request timed out. Please try again.');
-        else setAiError(`AI evaluation error: ${err.message}`);
+      if (err instanceof OpenRouterError || err instanceof groq.GroqError) {
+        const e = err as { code: string; message: string };
+        if (e.code === 'NO_KEY') setAiError('API key is missing. Add it in Settings.');
+        else if (e.code === 'RATE_LIMIT') setAiError('Rate limit exceeded. Please try again later.');
+        else if (e.code === 'TIMEOUT') setAiError('Request timed out. Please try again.');
+        else setAiError(`AI evaluation error: ${e.message}`);
       } else {
         setAiError('AI evaluation is currently unavailable. The exam has been saved locally.');
       }
@@ -587,9 +598,12 @@ export default function TelcExam() {
     setPhase('evaluating');
     setAiError('');
 
+    const aiConf = USE_GROQ
+      ? { apiKey: telcSettings.groqApiKey, model: telcSettings.groqModel }
+      : { apiKey: telcSettings.apiKey, model: telcSettings.model };
     try {
-      const result = await evaluateFollowUpAnswers(
-        { apiKey: telcSettings.apiKey, model: telcSettings.model },
+      const result = await (USE_GROQ ? groq.evaluateFollowUpAnswers : evaluateFollowUpAnswers)(
+        aiConf,
         topic,
         transcriptRef.current.trim(),
         qa,
@@ -629,9 +643,12 @@ export default function TelcExam() {
     setSummaryLoading(true);
     setAiSummary(null);
     setSummaryFeedbackGiven(false);
+    const aiConf = USE_GROQ
+      ? { apiKey: telcSettings.groqApiKey, model: telcSettings.groqModel }
+      : { apiKey: telcSettings.apiKey, model: telcSettings.model };
     try {
-      const result = await generateAiSummary(
-        { apiKey: telcSettings.apiKey, model: telcSettings.model },
+      const result = await (USE_GROQ ? groq.generateAiSummary : generateAiSummary)(
+        aiConf,
         topic,
         transcriptRef.current.trim()
       );
@@ -656,9 +673,12 @@ export default function TelcExam() {
 
   const handleShowQuestions = async () => {
     setPhase('questions');
+    const aiConf = USE_GROQ
+      ? { apiKey: telcSettings.groqApiKey, model: telcSettings.groqModel }
+      : { apiKey: telcSettings.apiKey, model: telcSettings.model };
     try {
-      const result = await generatePresentationQuestions(
-        { apiKey: telcSettings.apiKey, model: telcSettings.model },
+      const result = await (USE_GROQ ? groq.generatePresentationQuestions : generatePresentationQuestions)(
+        aiConf,
         topic,
         transcriptRef.current.trim()
       );
@@ -682,9 +702,12 @@ export default function TelcExam() {
 
   const generateNextDiscussionTurn = async (existingTurns: DiscussionTurn[]) => {
     setDiscussionLoading(true);
+    const aiConf = USE_GROQ
+      ? { apiKey: telcSettings.groqApiKey, model: telcSettings.groqModel }
+      : { apiKey: telcSettings.apiKey, model: telcSettings.model };
     try {
-      const result = await generateDiscussionResponse(
-        { apiKey: telcSettings.apiKey, model: telcSettings.model },
+      const result = await (USE_GROQ ? groq.generateDiscussionResponse : generateDiscussionResponse)(
+        aiConf,
         topic,
         transcriptRef.current.trim(),
         existingTurns,
@@ -1195,7 +1218,7 @@ export default function TelcExam() {
           <div className="space-y-4">
             <button
               onClick={handleShowSummary}
-              disabled={!telcSettings.aiEnabled || !telcSettings.apiKey}
+              disabled={!telcSettings.aiEnabled || (USE_GROQ ? !telcSettings.groqApiKey : !telcSettings.apiKey)}
               className="w-full bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-cyan-900/20"
             >
               <BookOpen size={20} />
@@ -1203,7 +1226,7 @@ export default function TelcExam() {
             </button>
             <button
               onClick={handleStartDiscussion}
-              disabled={!telcSettings.aiEnabled || !telcSettings.apiKey}
+              disabled={!telcSettings.aiEnabled || (USE_GROQ ? !telcSettings.groqApiKey : !telcSettings.apiKey)}
               className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/30 text-lg"
             >
               <MessageCircle size={24} />
@@ -1274,7 +1297,7 @@ export default function TelcExam() {
               )}
 
               <div className="space-y-3">
-                {telcSettings.aiEnabled && telcSettings.apiKey && (
+                {telcSettings.aiEnabled && (USE_GROQ ? telcSettings.groqApiKey : telcSettings.apiKey) && (
                   <button
                     onClick={handleShowQuestions}
                     className="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-cyan-900/20"
@@ -1283,7 +1306,7 @@ export default function TelcExam() {
                     Verständnisfragen
                   </button>
                 )}
-                {telcSettings.aiEnabled && telcSettings.apiKey && (
+                {telcSettings.aiEnabled && (USE_GROQ ? telcSettings.groqApiKey : telcSettings.apiKey) && (
                   <button
                     onClick={handleStartDiscussion}
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-900/20"
