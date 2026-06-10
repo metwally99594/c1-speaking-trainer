@@ -16,6 +16,9 @@ import { analyzeRedemittel } from '../utils/redemittelAnalyzer';
 import { analyzeVocabulary } from '../utils/vocabularyAnalyzer';
 import { analyzeArgumentation } from '../utils/argumentationAnalyzer';
 
+// Feature flag: use Groq Whisper instead of browser Web Speech API
+const USE_GROQ_STT = true;
+
 const TELC_DISCUSSION_TASKS = [
   '1. Wie verstehen Sie diese Aussage?',
   '2. Sagen Sie, inwieweit Sie mit der Aussage übereinstimmen oder sie ablehnen.',
@@ -100,6 +103,7 @@ export default function TelcExam() {
   // Speech
   const [transcript, setTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [wpm, setWpm] = useState(0);
   const [interimTranscript] = useState('');
@@ -217,19 +221,28 @@ export default function TelcExam() {
 
   const handleStopRecording = useCallback(() => {
     console.log('handleStopRecording');
-    // Stop the keep-alive loop FIRST so onend does not restart
     keepAliveRef.current = false;
-
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch { /* ignore */ }
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
-    }
-    setIsRecording(false);
     stopTimer();
-    setTranscript(transcriptRef.current.trim());
-    setPhase('completed');
+
+    if (USE_GROQ_STT) {
+      // Stop the MediaRecorder — onstop handler transcribes via Groq then sets phase
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
+      }
+      setIsRecording(false);
+      setProcessing(true);
+    } else {
+      // Web Speech API path
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch { /* ignore */ }
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
+      }
+      setIsRecording(false);
+      setTranscript(transcriptRef.current.trim());
+      setPhase('completed');
+    }
   }, [stopTimer]);
 
   // Update ref so auto-timer can trigger stop
@@ -341,20 +354,11 @@ export default function TelcExam() {
 
   // -----------------------------------------------------------------
   // startRecording – called by the "Mikrofon einschalten" button.
-  // Starts the keepAlive loop, audio recording, and the timer.
-  // (Only the recognition config changed; MediaRecorder is untouched.)
+  // With USE_GROQ_STT=true: starts MediaRecorder, sends audio to Groq on stop.
+  // With USE_GROQ_STT=false: uses Web Speech API (original behavior).
   // -----------------------------------------------------------------
   const startRecording = useCallback(async () => {
     console.log('startRecording');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognitionAPI =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognitionAPI) {
-      setAiError('Speech recognition is not supported in this browser.');
-      return;
-    }
-
     console.log('userAgent', navigator.userAgent);
 
     // Reset transcript for this session
@@ -364,22 +368,71 @@ export default function TelcExam() {
     setWpm(0);
     startTimeRef.current = Date.now();
 
-    // ---- TEMPORARILY skip MediaRecorder to test if mic is exclusive ----
-    // ---- (SpeechRecognition will use the mic directly)               ----
-    audioChunksRef.current = [];
-    if (navigator.permissions && navigator.permissions.query) {
+    if (USE_GROQ_STT) {
+      // ---- Groq Whisper path ----
       try {
-        const perm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-        console.log('mic permission state', perm.state);
-      } catch {
-        // permissions.query not supported
-      }
-    }
-    console.log('MediaRecorder skipped for testing');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunksRef.current = [];
 
-    // Start speech recognition only after mic stream is acquired
-    keepAliveRef.current = true;
-    startNewSession();
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        mediaRecorderRef.current = recorder;
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+
+        recorder.onstop = async () => {
+          console.log('MediaRecorder onstop — sending to Groq');
+          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const formData = new FormData();
+          formData.append('file', blob, 'recording.webm');
+
+          try {
+            const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (!res.ok) {
+              setAiError(data.error || `Groq API error (${res.status})`);
+              setProcessing(false);
+              setPhase('error');
+            } else {
+              transcriptRef.current = data.text || '';
+              console.log('Groq transcript:', transcriptRef.current);
+              setTranscript(transcriptRef.current.trim());
+              const words = transcriptRef.current.trim().split(/\s+/).filter(Boolean).length;
+              setWordCount(words);
+              const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
+              if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
+              setProcessing(false);
+              setPhase('completed');
+            }
+          } catch (err) {
+            console.log('Groq fetch error', err);
+            setAiError('Network error contacting Groq API');
+            setProcessing(false);
+            setPhase('error');
+          }
+        };
+
+        recorder.start();
+      } catch {
+        setAiError('Microphone access denied or unavailable');
+        setPhase('error');
+        return;
+      }
+    } else {
+      // ---- Web Speech API path ----
+      const SpeechRecognitionAPI =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (!SpeechRecognitionAPI) {
+        setAiError('Speech recognition is not supported in this browser.');
+        return;
+      }
+
+      audioChunksRef.current = [];
+      keepAliveRef.current = true;
+      startNewSession();
+    }
 
     // Start the presentation countdown timer
     startTimer();
@@ -1060,7 +1113,12 @@ export default function TelcExam() {
         {/* Transcript Display */}
         <div className="bg-gray-950 border border-gray-900 rounded-2xl p-6 mb-6 shadow-xl min-h-[120px]">
           <p className="text-sm text-gray-300 leading-relaxed">
-            {transcript || interimTranscript || (
+            {processing ? (
+              <span className="text-yellow-400 italic flex items-center gap-2">
+                <Loader2 size={16} className="animate-spin" />
+                Transkription wird verarbeitet...
+              </span>
+            ) : transcript || interimTranscript || (
               <span className="text-gray-600 italic">Ihre Rede erscheint hier...</span>
             )}
           </p>
@@ -1068,7 +1126,12 @@ export default function TelcExam() {
 
         {/* Recording Controls */}
         <div className="flex gap-4">
-          {!isRecording ? (
+          {processing ? (
+            <div className="flex-1 flex items-center justify-center gap-3 bg-zinc-800 text-zinc-400 py-5 rounded-2xl font-bold">
+              <Loader2 size={24} className="animate-spin" />
+              Transkribiere mit Groq Whisper...
+            </div>
+          ) : !isRecording ? (
             <button
               onClick={startRecording}
               disabled={elapsed >= TELC_DURATION}
