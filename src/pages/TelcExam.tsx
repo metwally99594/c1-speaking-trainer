@@ -253,25 +253,36 @@ export default function TelcExam() {
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'de-DE';
     console.log('recognition.lang', recognition.lang);
-    recognition.continuous = false;     // single-utterance — works on Android Chrome
-    recognition.interimResults = false; // final results only
+    recognition.continuous = true;     // TEST: try continuous mode
+    recognition.interimResults = true; // TEST: try interim results
 
-    // Track whether at least one result was received in this session
+    // Track timing and whether at least one result was received
     let hasReceivedResult = false;
+    let sessionStartTime = 0;
 
     recognition.onstart = () => {
       console.log('onstart');
+      sessionStartTime = Date.now();
       setIsRecording(true);
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
-      const result = event.results[0][0].transcript + ' ';
-      console.log('onresult', result.trim());
+      let full = '';
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          full += event.results[i][0].transcript + ' ';
+        }
+      }
+      if (!full) {
+        console.log('onresult (interim)', event.results[0][0].transcript);
+        return;
+      }
+      console.log('onresult (final)', full.trim());
       hasReceivedResult = true;
 
       // Accumulate into the mutable ref first, then sync to state
-      transcriptRef.current = transcriptRef.current + result;
+      transcriptRef.current = transcriptRef.current + full;
       setTranscript(transcriptRef.current.trim());
 
       // Word count & WPM
@@ -292,7 +303,8 @@ export default function TelcExam() {
     };
 
     recognition.onend = () => {
-      console.log('onend');
+      const elapsed = sessionStartTime ? Date.now() - sessionStartTime : 0;
+      console.log('onend (session lasted', elapsed, 'ms)');
       setIsRecording(false);
       // Only restart if we ever received a result — breaks the start→onstart→onend cycle
       if (keepAliveRef.current && hasReceivedResult) {
