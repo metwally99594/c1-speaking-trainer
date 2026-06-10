@@ -106,13 +106,8 @@ export default function TelcExam() {
 
   // Speech
   const [transcript, setTranscript] = useState('');
-  const [, setIsRecording] = useState(false);
-  const [, setProcessing] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [wpm, setWpm] = useState(0);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
-  const keepAliveRef = useRef(false);
 
   // Structure helper
   const [structureOpen, setStructureOpen] = useState(true);
@@ -127,12 +122,6 @@ export default function TelcExam() {
   const [discussionLoading, setDiscussionLoading] = useState(false);
   const [discussionInput, setDiscussionInput] = useState('');
   const DISCUSSION_MAX_TURNS = 5;
-
-  // Audio Recording
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  void setAudioBlob; // keep reference alive even if unused in this test build
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
 
   // Evaluation
   const [evaluation, setEvaluation] = useState<TelcEvaluation | null>(null);
@@ -166,11 +155,6 @@ export default function TelcExam() {
 
   // Groq STT hook (always called per React rules)
   const groqStt = useGroqStt({ timeslice: 4000 });
-
-  // Sync isProcessing from the hook → TELC processing state
-  useEffect(() => {
-    if (USE_GROQ_STT) setProcessing(groqStt.isProcessing);
-  }, [groqStt.isProcessing]);
 
   // Sync transcript from the hook → TELC transcript + word count + WPM
   useEffect(() => {
@@ -248,40 +232,16 @@ export default function TelcExam() {
   useEffect(() => {
     return () => {
       stopTimer();
-      if (prepTimerRef.current) {
-        clearInterval(prepTimerRef.current);
-        prepTimerRef.current = null;
-      }
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch { /* ignore */ }
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
-      }
-    };
+        if (prepTimerRef.current) {
+          clearInterval(prepTimerRef.current);
+          prepTimerRef.current = null;
+        }
+      };
   }, [stopTimer]);
 
   const handleStopRecording = useCallback(() => {
-    console.log('handleStopRecording');
-    keepAliveRef.current = false;
     stopTimer();
-
-    if (USE_GROQ_STT) {
-      groqStt.stopRecording();
-      setIsRecording(false);
-      setProcessing(true);
-    } else {
-      // Web Speech API path
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch { /* ignore */ }
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try { mediaRecorderRef.current.stop(); } catch { /* ignore */ }
-      }
-      setIsRecording(false);
-      setTranscript(transcriptRef.current.trim());
-      setPhase('completed');
-    }
+    groqStt.stopRecording();
   }, [stopTimer]);
 
   // Update ref so auto-timer can trigger stop
@@ -290,112 +250,8 @@ export default function TelcExam() {
   }, [handleStopRecording]);
 
   // -----------------------------------------------------------------
-  // startNewSession – creates a fresh recognizer for ONE utterance,
-  // then auto-restarts via onend as long as keepAliveRef is true.
-  // -----------------------------------------------------------------
-  const startNewSession = useCallback(() => {
-    console.log('startNewSession');
-    console.log('visibilityState', document.visibilityState);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognitionAPI =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognitionAPI) return;
-
-    const recognition = new SpeechRecognitionAPI();
-    recognition.lang = 'de-DE';
-    console.log('recognition.lang', recognition.lang);
-    recognition.continuous = true;     // TEST: try continuous mode
-    recognition.interimResults = true; // TEST: try interim results
-
-    // Track timing and whether at least one result was received
-    let hasReceivedResult = false;
-    let sessionStartTime = 0;
-
-    recognition.onstart = () => {
-      console.log('onstart');
-      sessionStartTime = Date.now();
-      setIsRecording(true);
-    };
-
-    // Track the previous final from this session for prefix-aware dedup
-    let prevFinal = '';
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (event: any) => {
-      console.log('resultIndex:', event.resultIndex, 'results.length:', event.results.length);
-
-      // Find the last final result (most complete text in this batch)
-      let latestFinal = '';
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          console.log('final index', i, ':', event.results[i][0].transcript);
-          latestFinal = event.results[i][0].transcript;
-        }
-      }
-
-      if (!latestFinal) {
-        console.log('onresult (interim)', event.results[event.resultIndex][0].transcript);
-        return;
-      }
-
-      hasReceivedResult = true;
-
-      // Prefix-aware dedup: if latestFinal expands prevFinal, append only the suffix difference.
-      // Otherwise append as independent new content (new session, or recognizer restart).
-      if (latestFinal.startsWith(prevFinal)) {
-        const suffix = latestFinal.slice(prevFinal.length).trim();
-        if (suffix) {
-          transcriptRef.current += (transcriptRef.current ? ' ' : '') + suffix;
-        }
-      } else {
-        transcriptRef.current += (transcriptRef.current ? ' ' : '') + latestFinal;
-      }
-      prevFinal = latestFinal;
-
-      console.log('transcriptRef AFTER', transcriptRef.current);
-      setTranscript(transcriptRef.current.trim());
-
-      // Word count & WPM
-      const words = transcriptRef.current.trim().split(/\s+/).filter(Boolean).length;
-      setWordCount(words);
-      const elapsedSec = (Date.now() - startTimeRef.current) / 1000;
-      if (elapsedSec > 0) setWpm(Math.round((words / elapsedSec) * 60));
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onerror = (event: any) => {
-      console.log('onerror', event.error);
-      // Stop the restart loop if the user denied mic permission
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        keepAliveRef.current = false;
-      }
-      setIsRecording(false);
-    };
-
-    recognition.onend = () => {
-      const elapsed = sessionStartTime ? Date.now() - sessionStartTime : 0;
-      console.log('onend (session lasted', elapsed, 'ms)');
-      setIsRecording(false);
-      // Only restart if we ever received a result — breaks the start→onstart→onend cycle
-      if (keepAliveRef.current && hasReceivedResult) {
-        setTimeout(startNewSession, 1000);
-      } else {
-        console.log('restart suppressed (no result received)');
-      }
-    };
-
-    recognitionRef.current = recognition;
-    console.log('recognition.start()');
-    recognition.start();
-  }, []);
-
-  // -----------------------------------------------------------------
   // startRecording – called by the "Mikrofon einschalten" button.
-  // With USE_GROQ_STT=true: starts MediaRecorder with 8s timeslice,
-  // sends each chunk to Groq Whisper and accumulates transcript live.
-  // With USE_GROQ_STT=false: uses Web Speech API (original behavior).
+  // Uses the shared useGroqStt hook for MediaRecorder + Groq Whisper.
   // -----------------------------------------------------------------
   const startRecording = useCallback(async () => {
     console.log('startRecording');
@@ -417,24 +273,11 @@ export default function TelcExam() {
         setPhase('error');
         return;
       }
-    } else {
-      // ---- Web Speech API path ----
-      const SpeechRecognitionAPI =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-      if (!SpeechRecognitionAPI) {
-        setAiError('Speech recognition is not supported in this browser.');
-        return;
-      }
-
-      audioChunksRef.current = [];
-      keepAliveRef.current = true;
-      startNewSession();
     }
 
     // Start the presentation countdown timer
     startTimer();
-  }, [startNewSession, startTimer]);
+  }, [startTimer]);
 
   const handleStartExam = () => {
     setPhase('presentation');
@@ -461,7 +304,6 @@ export default function TelcExam() {
   };
 
   const handleRunEvaluation = async () => {
-    const audioBase64 = audioBlob ? await blobToBase64(audioBlob) : undefined;
     // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
 
@@ -478,7 +320,6 @@ export default function TelcExam() {
       followUpQA: [],
       evaluation: null,
       aiAvailable: false,
-      audioBlob: audioBase64,
       preparationNotes: existingSession?.preparationNotes,
       presentationQuestions: existingSession?.presentationQuestions,
       discussionStatement: existingSession?.discussionStatement,
@@ -762,15 +603,6 @@ export default function TelcExam() {
   };
 
   const remaining = Math.max(0, TELC_DURATION - elapsed);
-
-  const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  };
 
   // Role selection phase
   if (phase === 'role-select') {
