@@ -189,6 +189,10 @@ export default function TelcExam() {
   const groqCompletedRef = useRef(false);
   useEffect(() => {
     if (!USE_GROQ_STT) return;
+    // Guard: only transition when we're actually in the presentation phase.
+    // Without this guard the effect fires on mount (isRecording=false, isProcessing=false)
+    // and immediately jumps to 'completed' before the user even starts.
+    if (phase !== 'presentation') return;
     if (!groqStt.isRecording && !groqStt.isProcessing && !groqCompletedRef.current) {
       groqCompletedRef.current = true;
       setPhase('completed');
@@ -196,6 +200,7 @@ export default function TelcExam() {
     if (groqStt.isRecording || groqStt.isProcessing) {
       groqCompletedRef.current = false;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groqStt.isRecording, groqStt.isProcessing]);
 
   const stopTimer = useCallback(() => {
