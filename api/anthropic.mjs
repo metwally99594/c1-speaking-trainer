@@ -1,19 +1,15 @@
-/**
- * Vercel Edge Function — Proxy to OpenRouter.
- *
- * Accepts JSON with { messages } array (OpenAI-compatible format).
- * Forwards to OpenRouter with model claude-sonnet-4-20250514.
- *
- * POST /api/anthropic
- * Headers: Content-Type: application/json
- * Body: { messages: [{ role, content }] }
- */
+console.log('[TELC AI] module loaded, runtime:', typeof process !== 'undefined' ? 'node/edge' : 'browser');
+console.log('[TELC AI] OPENROUTER_API_KEY exists:', !!process.env.OPENROUTER_API_KEY);
+console.log('[TELC AI] GROQ_API_KEY exists:', !!process.env.GROQ_API_KEY);
 
 export const config = {
   runtime: 'edge',
 };
 
 export default async function handler(req) {
+  console.log('[TELC AI] handler called, method:', req.method);
+  console.log('[TELC AI] OPENROUTER_API_KEY inside handler:', !!process.env.OPENROUTER_API_KEY);
+
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -33,7 +29,13 @@ export default async function handler(req) {
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY not configured' }), {
+      const allVars = Object.keys(process.env).filter(k => !k.includes('SECRET') && !k.includes('KEY') && !k.includes('TOKEN'));
+      return new Response(JSON.stringify({
+        error: 'OPENROUTER_API_KEY not configured',
+        hint: 'Set OPENROUTER_API_KEY in Vercel Dashboard → Settings → Environment Variables → Production',
+        availableKeys: allVars,
+        hasOpenRouter: !!process.env.OPENROUTER_API_KEY,
+      }), {
         status: 500,
         headers: { 'content-type': 'application/json' },
       });
