@@ -10,6 +10,23 @@ export default async function handler(req) {
   console.log('[TELC AI] handler called, method:', req.method);
   console.log('[TELC AI] OPENROUTER_API_KEY inside handler:', !!process.env.OPENROUTER_API_KEY);
 
+  // GET for diagnostics
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({
+      ok: true,
+      status: 'diagnostic',
+      env: {
+        OPENROUTER_API_KEY_exists: !!process.env.OPENROUTER_API_KEY,
+        GROQ_API_KEY_exists: !!process.env.GROQ_API_KEY,
+        VERCEL_ENV: process.env.VERCEL_ENV || 'not set',
+        VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL || 'not set',
+      },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
