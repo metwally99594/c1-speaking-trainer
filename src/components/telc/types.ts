@@ -43,8 +43,10 @@ export interface EvalFeedback {
   overall_comment: string;
 }
 
+export type DiscussionRole = 'candidate' | 'ai' | 'person_a' | 'person_b';
+
 export interface DiscussionTurn {
-  role: 'candidate' | 'ai';
+  role: DiscussionRole;
   text: string;
 }
 
@@ -92,6 +94,7 @@ export type Phase =
   | 'TEIL_1A_AI_PRESENTS'
   | 'TEIL_1B_CANDIDATE_QUESTIONS'
   | 'TEIL_1B_AI_ANSWERS'
+  | 'DISCUSSION_MODE_SELECT'
   | 'TEIL_2_DISKUSSION'
   | 'EVALUATION'
   | 'SELF_ASSESSMENT'
@@ -106,6 +109,7 @@ export const PHASES: Record<Phase, Phase> = {
   TEIL_1A_AI_PRESENTS: 'TEIL_1A_AI_PRESENTS',
   TEIL_1B_CANDIDATE_QUESTIONS: 'TEIL_1B_CANDIDATE_QUESTIONS',
   TEIL_1B_AI_ANSWERS: 'TEIL_1B_AI_ANSWERS',
+  DISCUSSION_MODE_SELECT: 'DISCUSSION_MODE_SELECT',
   TEIL_2_DISKUSSION: 'TEIL_2_DISKUSSION',
   EVALUATION: 'EVALUATION',
   SELF_ASSESSMENT: 'SELF_ASSESSMENT',

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Users, MessageCircle } from 'lucide-react';
 import { PHASES } from './types';
 import type { DiscussionTurn, UserAssessment } from './types';
 import type { PraesentationTopic, Zitat } from './types';
@@ -12,6 +13,7 @@ import Teil1APhase from './phases/Teil1APhase';
 import ListenPhase from './phases/ListenPhase';
 import RecordPhase from './phases/RecordPhase';
 import Teil2Phase from './phases/Teil2Phase';
+import PartnerDiscussionPhase from './phases/PartnerDiscussionPhase';
 import EvaluationPhase from './phases/EvaluationPhase';
 import SelfAssessPhase from './phases/SelfAssessPhase';
 import ResultsPhase from './phases/ResultsPhase';
@@ -37,6 +39,7 @@ export default function TELCModule() {
   const [aiPartnerResponse, setAiPartnerResponse] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<ReturnType<typeof buildEvaluation> | null>(null);
   const [historyView, setHistoryView] = useState(false);
+  const [discussionMode, setDiscussionMode] = useState<'ai' | 'partner' | null>(null);
 
   const resetExam = useCallback(() => {
     setPhase(PHASES.IDLE);
@@ -160,6 +163,11 @@ export default function TELCModule() {
 
   const handleContinueToDiscussion = useCallback(() => {
     setAiPartnerResponse(null);
+    setPhase(PHASES.DISCUSSION_MODE_SELECT);
+  }, []);
+
+  const handleSelectDiscussionMode = useCallback((mode: 'ai' | 'partner') => {
+    setDiscussionMode(mode);
     setPhase(PHASES.TEIL_2_DISKUSSION);
   }, []);
 
@@ -306,7 +314,72 @@ export default function TELCModule() {
             continueLabel="Weiter zur Diskussion"
           />
         );
+      case PHASES.DISCUSSION_MODE_SELECT:
+        return (
+          <div style={{ padding: '0 4px' }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px', textAlign: 'center', color: '#f1f5f9' }}>
+              Teil 2 — Diskussion
+            </h2>
+            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', textAlign: 'center' }}>
+              Wählen Sie Ihren Diskussionspartner
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <button onClick={() => handleSelectDiscussionMode('ai')} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: 16, borderRadius: 12,
+                border: '1px solid rgba(59,130,246,0.2)',
+                background: 'rgba(59,130,246,0.06)', cursor: 'pointer', textAlign: 'left',
+                transition: 'background 0.15s',
+              }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(59,130,246,0.15)', color: '#60a5fa',
+                }}>
+                  <MessageCircle size={22} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>
+                    KI-Partner (Leila)
+                  </div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                    Leila diskutiert mit Ihnen — simuliert eine echte Prüfungssituation
+                  </div>
+                </div>
+              </button>
+              <button onClick={() => handleSelectDiscussionMode('partner')} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: 16, borderRadius: 12,
+                border: '1px solid rgba(34,197,94,0.2)',
+                background: 'rgba(34,197,94,0.06)', cursor: 'pointer', textAlign: 'left',
+                transition: 'background 0.15s',
+              }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(34,197,94,0.15)', color: '#4ade80',
+                }}>
+                  <Users size={22} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>
+                    Partner (mit Freund)
+                  </div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                    Diskutieren Sie mit einem Freund — tauschen Sie Rollen und lassen Sie sich bewerten
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        );
       case PHASES.TEIL_2_DISKUSSION:
+        if (discussionMode === 'partner') {
+          return (
+            <PartnerDiscussionPhase
+              zitat={currentZitat!}
+              onTurnsReady={handleTeil2Turns}
+            />
+          );
+        }
         return (
           <Teil2Phase
             zitat={currentZitat!}
