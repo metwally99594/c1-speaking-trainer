@@ -1,5 +1,6 @@
 import { Mic, Square, Loader2, Check } from 'lucide-react';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const STATES = {
   IDLE: 'idle' as const,
   RECORDING: 'recording' as const,

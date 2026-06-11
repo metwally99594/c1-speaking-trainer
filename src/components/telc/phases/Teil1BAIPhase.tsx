@@ -25,13 +25,7 @@ export default function Teil1BAIPhase({
   onAnswersReady,
 }: Teil1BAIPhaseProps) {
   const [step, setStep] = useState<'listening' | 'answering'>('listening');
-  const [shownResponse, setShownResponse] = useState('');
-
-  useEffect(() => {
-    if (aiResponse && !aiLoading && !shownResponse) {
-      setShownResponse(aiResponse);
-    }
-  }, [aiResponse, aiLoading, shownResponse]);
+  const shownResponse = aiResponse && !aiLoading ? aiResponse : '';
 
   useEffect(() => {
     if (transcript && !processing && !fallbackMode) {

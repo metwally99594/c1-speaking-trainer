@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import TTSSpeaker from '../components/TTSSpeaker';
 
 interface Teil1BCandidateListensPhaseProps {
@@ -11,13 +10,7 @@ interface Teil1BCandidateListensPhaseProps {
 export default function Teil1BCandidateListensPhase({
   aiResponse, aiLoading, aiError, onComplete,
 }: Teil1BCandidateListensPhaseProps) {
-  const [shownResponse, setShownResponse] = useState('');
-
-  useEffect(() => {
-    if (aiResponse && !aiLoading && !shownResponse) {
-      setShownResponse(aiResponse);
-    }
-  }, [aiResponse, aiLoading, shownResponse]);
+  const shownResponse = aiResponse && !aiLoading ? aiResponse : '';
 
   if (aiLoading) {
     return (

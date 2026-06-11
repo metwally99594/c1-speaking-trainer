@@ -23,13 +23,12 @@ export default function Teil2Phase({
   onTurnsReady,
 }: Teil2PhaseProps) {
   const [turns, setTurns] = useState<DiscussionTurn[]>([]);
-  const [currentSpeaker, setCurrentSpeaker] = useState<'ai' | 'candidate' | null>('ai');
   const [discussionDone, setDiscussionDone] = useState(false);
-  const [timerRunning, setTimerRunning] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const turnsRef = useRef<DiscussionTurn[]>([]);
   const mountedRef = useRef(true);
+  const endedRef = useRef(false);
 
   useEffect(() => {
     return () => { mountedRef.current = false; };
@@ -43,11 +42,52 @@ export default function Teil2Phase({
     });
   }, []);
 
+  const handleTimerEnd = useCallback(() => {
+    if (endedRef.current) return;
+    endedRef.current = true;
+    if (recording) stopRecording();
+    setDiscussionDone(true);
+    onTurnsReady(turnsRef.current);
+  }, [recording, stopRecording, onTurnsReady]);
+
+  // Detect discussion end
+  useEffect(() => {
+    if (turns.length >= 6 && turns[turns.length - 1]?.role === 'ai' && !endedRef.current) {
+      handleTimerEnd();
+    }
+  }, [turns, handleTimerEnd]);
+
+  // Open discussion with AI
+  useEffect(() => {
+    let cancelled = false;
+    const openDiscussion = async () => {
+      setAiLoading(true);
+      try {
+        const response = await callPartner(
+          'TEIL_2',
+          `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})`,
+          '',
+        );
+        if (!mountedRef.current || cancelled) return;
+        if (response) addTurn('ai', response);
+      } catch (err) {
+        if (!mountedRef.current || cancelled) return;
+        setAiError(err instanceof Error ? err.message : 'Fehler');
+      } finally {
+        if (mountedRef.current && !cancelled) setAiLoading(false);
+      }
+    };
+    openDiscussion();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Handle candidate transcript → call AI
   useEffect(() => {
     if (!transcript || processing || fallbackMode || discussionDone) return;
     addTurn('candidate', transcript);
-    setCurrentSpeaker('ai');
 
+    let cancelled = false;
     const getAiResponse = async () => {
       setAiLoading(true);
       setAiError(null);
@@ -59,59 +99,22 @@ export default function Teil2Phase({
           `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})`,
           lastCandidate,
         );
-        if (!mountedRef.current) return;
-        if (response) {
-          addTurn('ai', response);
-        }
-        setCurrentSpeaker('candidate');
+        if (!mountedRef.current || cancelled) return;
+        if (response) addTurn('ai', response);
       } catch (err) {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || cancelled) return;
         setAiError(err instanceof Error ? err.message : 'Fehler');
       } finally {
-        if (mountedRef.current) setAiLoading(false);
+        if (mountedRef.current && !cancelled) setAiLoading(false);
       }
     };
     getAiResponse();
-  }, [transcript, processing, fallbackMode, discussionDone, addTurn, callPartner, zitat]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript, processing, fallbackMode, discussionDone]);
 
-  const handleTimerEnd = useCallback(() => {
-    setTimerRunning(false);
-    setDiscussionDone(true);
-    setCurrentSpeaker(null);
-    if (recording) stopRecording();
-    onTurnsReady(turnsRef.current);
-  }, [recording, stopRecording, onTurnsReady]);
-
-  useEffect(() => {
-    const openDiscussion = async () => {
-      setAiLoading(true);
-      try {
-        const response = await callPartner(
-          'TEIL_2',
-          `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})`,
-          '',
-        );
-        if (!mountedRef.current) return;
-        if (response) {
-          addTurn('ai', response);
-          setCurrentSpeaker('candidate');
-        }
-      } catch (err) {
-        if (!mountedRef.current) return;
-        setAiError(err instanceof Error ? err.message : 'Fehler');
-      } finally {
-        if (mountedRef.current) setAiLoading(false);
-      }
-    };
-    openDiscussion();
-  }, []);
-
-  useEffect(() => {
-    if (turns.length >= 6 && currentSpeaker === 'ai') {
-      handleTimerEnd();
-    }
-  }, [turns.length, currentSpeaker, handleTimerEnd]);
-
+  const isCandidateTurn = !aiLoading && !discussionDone && turns.length > 0
+    && turns[turns.length - 1]?.role === 'ai';
   const btnState = recording ? STATES.RECORDING : processing ? STATES.PROCESSING : transcript ? STATES.DONE : STATES.IDLE;
 
   return (
@@ -125,8 +128,8 @@ export default function Teil2Phase({
         </p>
       </div>
 
-      {timerRunning && (
-        <Timer totalSeconds={DURATION.TEIL_2} running={timerRunning} onEnd={handleTimerEnd} />
+      {!discussionDone && (
+        <Timer totalSeconds={DURATION.TEIL_2} running={!discussionDone} onEnd={handleTimerEnd} />
       )}
 
       <div style={{
@@ -164,7 +167,7 @@ export default function Teil2Phase({
         ))}
       </div>
 
-      {currentSpeaker === 'candidate' && !discussionDone && !transcript && (
+      {isCandidateTurn && !transcript && (
         <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
           <RecordButton state={btnState} onStart={startRecording} onStop={stopRecording} />
         </div>
@@ -182,7 +185,7 @@ export default function Teil2Phase({
         </div>
       )}
 
-      {fallbackMode && currentSpeaker === 'candidate' && !discussionDone && (
+      {fallbackMode && isCandidateTurn && !discussionDone && (
         <div style={{
           background: 'rgba(245,158,11,0.08)', borderRadius: 10,
           border: '1px solid rgba(245,158,11,0.2)', padding: 14,
@@ -202,7 +205,6 @@ export default function Teil2Phase({
               const val = ta?.value || '';
               if (!val.trim()) return;
               addTurn('candidate', val);
-              setCurrentSpeaker('ai');
               const getResponse = async () => {
                 setAiLoading(true);
                 setAiError(null);
@@ -214,7 +216,6 @@ export default function Teil2Phase({
                   );
                   if (!mountedRef.current) return;
                   if (response) addTurn('ai', response);
-                  setCurrentSpeaker('candidate');
                 } catch (err) {
                   if (!mountedRef.current) return;
                   setAiError(err instanceof Error ? err.message : 'Fehler');

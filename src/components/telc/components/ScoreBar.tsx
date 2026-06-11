@@ -8,10 +8,7 @@ export default function ScoreBar({ total }: ScoreBarProps) {
   const ratio = Math.min(total / TOTAL_MAX, 1);
   const passed = total >= PASS_THRESHOLD;
 
-  let barColor = '#3b82f6';
-  if (passed) barColor = '#22c55e';
-  else if (total >= PASS_THRESHOLD * 0.8) barColor = '#f59e0b';
-  else barColor = '#ef4444';
+  const barColor = passed ? '#22c55e' : total >= PASS_THRESHOLD * 0.8 ? '#f59e0b' : '#ef4444';
 
   return (
     <div style={{ width: '100%' }}>

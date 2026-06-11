@@ -69,7 +69,6 @@ export default function TELCModule() {
 
   useEffect(() => {
     if (phase === PHASES.TEIL_1B_AI_LISTENS && transcripts.teil_1a && !aiPartnerResponse && !ai.loading) {
-      setAiPartnerResponse(null);
       ai.callPartner(
         'TEIL_1B',
         `${currentTopic?.title}: ${currentTopic?.prompt}`,
@@ -78,6 +77,7 @@ export default function TELCModule() {
         setAiPartnerResponse(response || '');
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, transcripts.teil_1a, currentTopic, ai]);
 
   const handleAiResponseDone = useCallback(() => {
@@ -100,6 +100,7 @@ export default function TELCModule() {
         setAiPartnerResponse(response || '');
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentTopic, transcripts.teil_1a, ai]);
 
   const handleAiPresentationDone = useCallback(() => {
@@ -122,6 +123,7 @@ export default function TELCModule() {
         setAiPartnerResponse(response || '');
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, transcripts.teil_1b_questions, currentTopic, ai]);
 
   const handleTeil1BDone = useCallback(() => {

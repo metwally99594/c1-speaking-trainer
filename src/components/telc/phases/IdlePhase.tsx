@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Play, Settings } from 'lucide-react';
 import type { PraesentationTopic, Zitat } from '../types';
 
@@ -13,15 +13,10 @@ function loadFromStorage<T>(key: string): T[] {
 }
 
 export default function IdlePhase({ onStart, onNavigateToAdmin }: IdlePhaseProps) {
-  const [topics, setTopics] = useState<PraesentationTopic[]>([]);
-  const [zitate, setZitate] = useState<Zitat[]>([]);
+  const [topics] = useState<PraesentationTopic[]>(() => loadFromStorage<PraesentationTopic>('telc_topics'));
+  const [zitate] = useState<Zitat[]>(() => loadFromStorage<Zitat>('telc_zitate'));
   const [selectedTopic, setSelectedTopic] = useState<PraesentationTopic | null>(null);
   const [selectedZitat, setSelectedZitat] = useState<Zitat | null>(null);
-
-  useEffect(() => {
-    setTopics(loadFromStorage<PraesentationTopic>('telc_topics'));
-    setZitate(loadFromStorage<Zitat>('telc_zitate'));
-  }, []);
 
   const canStart = selectedTopic && selectedZitat;
   const hasContent = topics.length > 0 && zitate.length > 0;

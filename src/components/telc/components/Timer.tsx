@@ -13,6 +13,7 @@ export default function Timer({ totalSeconds, running = true, onEnd, paused = fa
   const endedRef = useRef(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRemaining(totalSeconds);
     endedRef.current = false;
   }, [totalSeconds]);
