@@ -1,12 +1,37 @@
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, Square } from 'lucide-react';
 import useTTS from '../useTTS';
 
 interface TTSSpeakerProps {
   text: string;
+  compact?: boolean;
 }
 
-export default function TTSSpeaker({ text }: TTSSpeakerProps) {
+export default function TTSSpeaker({ text, compact }: TTSSpeakerProps) {
   const { speak, stop, speaking } = useTTS();
+
+  if (compact) {
+    return (
+      <button
+        onClick={speaking ? stop : () => speak(text)}
+        title={speaking ? 'Stop' : 'Anhören'}
+        style={{
+          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: speaking
+            ? '1px solid rgba(239,68,68,0.4)'
+            : '1px solid rgba(100,116,139,0.3)',
+          background: speaking
+            ? 'rgba(239,68,68,0.15)'
+            : 'rgba(100,116,139,0.1)',
+          color: speaking ? '#ef4444' : '#94a3b8',
+          cursor: 'pointer', padding: 0,
+          transition: 'background 0.15s',
+        }}
+      >
+        {speaking ? <Square size={12} /> : <Volume2 size={14} />}
+      </button>
+    );
+  }
 
   return (
     <div style={{
@@ -31,7 +56,7 @@ export default function TTSSpeaker({ text }: TTSSpeakerProps) {
             cursor: 'pointer', fontSize: 13, fontWeight: 600,
           }}
         >
-          {speaking ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          {speaking ? <Square size={16} /> : <Volume2 size={16} />}
           {speaking ? 'Stop' : 'Anhören'}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>

@@ -67,14 +67,10 @@ export default function TELCModule() {
     setPhase(PHASES.TEIL_1B_AI_SUMMARIZES);
   }, [transcripts, session]);
 
-  // TEIL_1B_AI_SUMMARIZES — AI summarizes + asks questions
+  // TEIL_1B_AI_SUMMARIZES — Leila summarizes + asks questions
   useEffect(() => {
     if (phase === PHASES.TEIL_1B_AI_SUMMARIZES && !aiPartnerResponse && !ai.loading && currentTopic) {
-      ai.callPartner(
-        'TEIL_1B_SUMMARIZE',
-        `${currentTopic.title}: ${currentTopic.prompt}`,
-        transcripts.teil_1a,
-      ).then(response => {
+      ai.summarizeAndAsk(currentTopic.title, transcripts.teil_1a).then(response => {
         setAiPartnerResponse(response || '');
       });
     }
@@ -87,14 +83,10 @@ export default function TELCModule() {
     setPhase(PHASES.TEIL_1A_AI_PRESENTS);
   }, [transcripts, session]);
 
-  // TEIL_1A_AI_PRESENTS — AI presents on the topic from different angle
+  // TEIL_1A_AI_PRESENTS — Leila presents on the topic from different angle
   useEffect(() => {
     if (phase === PHASES.TEIL_1A_AI_PRESENTS && !aiPartnerResponse && !ai.loading && currentTopic) {
-      ai.callPartner(
-        'TEIL_1A',
-        `${currentTopic.title}: ${currentTopic.prompt}`,
-        `The candidate presented on: ${transcripts.teil_1a?.slice(0, 200)}...`,
-      ).then(response => {
+      ai.presentOnTopic(currentTopic.title, currentTopic.prompt, transcripts.teil_1a).then(response => {
         setAiPartnerResponse(response || '');
       });
     }
@@ -107,14 +99,10 @@ export default function TELCModule() {
     setPhase(PHASES.TEIL_1B_AI_ANSWERS);
   }, [transcripts, session]);
 
-  // TEIL_1B_AI_ANSWERS — AI briefly answers candidate's questions
+  // TEIL_1B_AI_ANSWERS — Leila briefly answers candidate's questions
   useEffect(() => {
     if (phase === PHASES.TEIL_1B_AI_ANSWERS && !aiPartnerResponse && !ai.loading && currentTopic) {
-      ai.callPartner(
-        'TEIL_1B_ANSWERS',
-        `The candidate asked questions about the AI presentation. Topic: ${currentTopic.title}`,
-        transcripts.teil_1b_questions,
-      ).then(response => {
+      ai.answerCandidateQuestions(currentTopic.title, transcripts.teil_1b_questions).then(response => {
         setAiPartnerResponse(response || '');
       });
     }
@@ -321,7 +309,7 @@ export default function TELCModule() {
       case PHASES.TEIL_2_DISKUSSION:
         return (
           <Teil2Phase
-            zitat={currentZitat!} callPartner={ai.callPartner}
+            zitat={currentZitat!}
             recording={stt.recording} processing={stt.processing}
             transcript={stt.transcript} fallbackMode={stt.fallbackMode}
             startRecording={stt.startRecording} stopRecording={stt.stopRecording}

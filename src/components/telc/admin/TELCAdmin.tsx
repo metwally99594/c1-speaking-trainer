@@ -107,26 +107,30 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
     background: 'rgba(100,116,139,0.04)',
   };
 
-  // ---------- Zitate (same as before) ----------
+  // ---------- Zitate ----------
   const [showAddZitat, setShowAddZitat] = useState(false);
   const [addZitatText, setAddZitatText] = useState('');
   const [addZitatAuthor, setAddZitatAuthor] = useState('');
   const [addZitatAngle, setAddZitatAngle] = useState('');
-  const resetAddZitat = () => { setAddZitatText(''); setAddZitatAuthor(''); setAddZitatAngle(''); setShowAddZitat(false); };
+  const [addZitatQuestions, setAddZitatQuestions] = useState<string[]>([]);
+  const [addZitatQInput, setAddZitatQInput] = useState('');
+  const resetAddZitat = () => { setAddZitatText(''); setAddZitatAuthor(''); setAddZitatAngle(''); setAddZitatQuestions([]); setAddZitatQInput(''); setShowAddZitat(false); };
   const handleAddZitat = () => {
-    if (!addZitatText.trim() || !addZitatAuthor.trim()) return;
-    const z: Zitat = { id: generateId(), text: addZitatText.trim(), author: addZitatAuthor.trim(), discussion_angle: addZitatAngle.trim() };
+    if (!addZitatText.trim() || !addZitatAuthor.trim() || addZitatQuestions.length < 2) return;
+    const z: Zitat = { id: generateId(), text: addZitatText.trim(), author: addZitatAuthor.trim(), discussion_angle: addZitatAngle.trim(), discussion_questions: [...addZitatQuestions] };
     const next = [...zitate, z]; saveToStorage(ZITATE_KEY, next); setZitate(next); resetAddZitat();
   };
   const [editZitatId, setEditZitatId] = useState<string | null>(null);
   const [editZitatText, setEditZitatText] = useState('');
   const [editZitatAuthor, setEditZitatAuthor] = useState('');
   const [editZitatAngle, setEditZitatAngle] = useState('');
-  const startEditZitat = (z: Zitat) => { setEditZitatId(z.id); setEditZitatText(z.text); setEditZitatAuthor(z.author); setEditZitatAngle(z.discussion_angle || ''); };
+  const [editZitatQuestions, setEditZitatQuestions] = useState<string[]>([]);
+  const [editZitatQInput, setEditZitatQInput] = useState('');
+  const startEditZitat = (z: Zitat) => { setEditZitatId(z.id); setEditZitatText(z.text); setEditZitatAuthor(z.author); setEditZitatAngle(z.discussion_angle || ''); setEditZitatQuestions([...(z.discussion_questions || [])]); setEditZitatQInput(''); };
   const cancelEditZitat = () => { setEditZitatId(null); };
   const saveEditZitat = () => {
-    if (!editZitatId || !editZitatText.trim() || !editZitatAuthor.trim()) return;
-    const next = zitate.map(z => z.id === editZitatId ? { ...z, text: editZitatText.trim(), author: editZitatAuthor.trim(), discussion_angle: editZitatAngle.trim() } : z);
+    if (!editZitatId || !editZitatText.trim() || !editZitatAuthor.trim() || editZitatQuestions.length < 2) return;
+    const next = zitate.map(z => z.id === editZitatId ? { ...z, text: editZitatText.trim(), author: editZitatAuthor.trim(), discussion_angle: editZitatAngle.trim(), discussion_questions: [...editZitatQuestions] } : z);
     saveToStorage(ZITATE_KEY, next); setZitate(next); setEditZitatId(null);
   };
   const [deleteZitatId, setDeleteZitatId] = useState<string | null>(null);
@@ -327,8 +331,20 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
               <label style={labelStyle}>Diskussionswinkel (optional)</label>
               <input value={addZitatAngle} onChange={e => setAddZitatAngle(e.target.value)} style={inputStyle} />
             </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>Diskussionsfragen (2-5, mind. 8 Zeichen)</label>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                <input value={addZitatQInput} onChange={e => setAddZitatQInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const v = addZitatQInput.trim(); if (v.length < 8 || addZitatQuestions.length >= 5) return; setAddZitatQuestions(prev => [...prev, v]); setAddZitatQInput(''); } }}
+                  placeholder={addZitatQuestions.length < 2 ? 'Mindestens 2 Fragen...' : 'Weitere Frage...'}
+                  style={{ ...smallInput, flex: 1 }} />
+                <button onClick={() => { const v = addZitatQInput.trim(); if (v.length < 8 || addZitatQuestions.length >= 5) return; setAddZitatQuestions(prev => [...prev, v]); setAddZitatQInput(''); }}
+                  style={{ ...btnPrimary, padding: '6px 10px', fontSize: 12, opacity: (addZitatQInput.trim().length < 8 || addZitatQuestions.length >= 5) ? 0.4 : 1 }}>+</button>
+              </div>
+              {addZitatQuestions.map((q, i) => <TipChip key={i} tip={q} onRemove={() => setAddZitatQuestions(prev => prev.filter((_, j) => j !== i))} />)}
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={handleAddZitat} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 4, opacity: (!addZitatText.trim() || !addZitatAuthor.trim()) ? 0.4 : 1, cursor: (!addZitatText.trim() || !addZitatAuthor.trim()) ? 'not-allowed' : 'pointer' }}><Check size={14} /> Speichern</button>
+              <button onClick={handleAddZitat} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 4, opacity: (!addZitatText.trim() || !addZitatAuthor.trim() || addZitatQuestions.length < 2) ? 0.4 : 1, cursor: (!addZitatText.trim() || !addZitatAuthor.trim() || addZitatQuestions.length < 2) ? 'not-allowed' : 'pointer' }}><Check size={14} /> Speichern</button>
               <button onClick={resetAddZitat} style={cancelBtnStyle}>Abbrechen</button>
             </div>
           </div>
@@ -346,6 +362,18 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
                   <div style={{ marginBottom: 8 }}><label style={labelStyle}>Zitat</label><textarea value={editZitatText} onChange={e => setEditZitatText(e.target.value)} rows={2} style={inputStyle} /></div>
                   <div style={{ marginBottom: 8 }}><label style={labelStyle}>Autor</label><input value={editZitatAuthor} onChange={e => setEditZitatAuthor(e.target.value)} style={inputStyle} /></div>
                   <div style={{ marginBottom: 8 }}><label style={labelStyle}>Diskussionswinkel (optional)</label><input value={editZitatAngle} onChange={e => setEditZitatAngle(e.target.value)} style={inputStyle} /></div>
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={labelStyle}>Diskussionsfragen (2-5, mind. 8 Zeichen)</label>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                      <input value={editZitatQInput} onChange={e => setEditZitatQInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const v = editZitatQInput.trim(); if (v.length < 8 || editZitatQuestions.length >= 5) return; setEditZitatQuestions(prev => [...prev, v]); setEditZitatQInput(''); } }}
+                        placeholder={editZitatQuestions.length < 2 ? 'Mindestens 2 Fragen...' : 'Weitere Frage...'}
+                        style={{ ...smallInput, flex: 1 }} />
+                      <button onClick={() => { const v = editZitatQInput.trim(); if (v.length < 8 || editZitatQuestions.length >= 5) return; setEditZitatQuestions(prev => [...prev, v]); setEditZitatQInput(''); }}
+                        style={{ ...btnPrimary, padding: '6px 10px', fontSize: 12, opacity: (editZitatQInput.trim().length < 8 || editZitatQuestions.length >= 5) ? 0.4 : 1 }}>+</button>
+                    </div>
+                    {editZitatQuestions.map((q, i) => <TipChip key={i} tip={q} onRemove={() => setEditZitatQuestions(prev => prev.filter((_, j) => j !== i))} />)}
+                  </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={saveEditZitat} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={14} /> Speichern</button>
                     <button onClick={cancelEditZitat} style={cancelBtnStyle}>Abbrechen</button>
@@ -358,6 +386,12 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
                       <div style={{ fontSize: 13, fontStyle: 'italic', color: '#f1f5f9', lineHeight: 1.6, marginBottom: 2 }}>„{z.text}</div>
                       <div style={{ fontSize: 12, color: '#94a3b8' }}>— {z.author}</div>
                       {z.discussion_angle && <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{z.discussion_angle}</div>}
+                      {z.discussion_questions?.length > 0 && (
+                        <div style={{ marginTop: 4 }}>
+                          <span style={{ fontSize: 11, color: '#64748b' }}>{z.discussion_questions.length} Frage{z.discussion_questions.length > 1 ? 'n' : ''}: </span>
+                          <span style={{ fontSize: 11, color: '#94a3b8' }}>{z.discussion_questions.join(', ')}</span>
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 8 }}>
                       <button onClick={() => startEditZitat(z)} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 4 }}><Pencil size={16} /></button>
