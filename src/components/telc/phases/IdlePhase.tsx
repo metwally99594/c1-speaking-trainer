@@ -18,7 +18,10 @@ export default function IdlePhase({ onStart, onNavigateToAdmin }: IdlePhaseProps
   const [selectedTopic, setSelectedTopic] = useState<PraesentationTopic | null>(null);
   const [selectedZitat, setSelectedZitat] = useState<Zitat | null>(null);
 
+  console.log('[TELC Idle] topics:', topics.length, 'zitate:', zitate.length);
+  console.log('[TELC Idle] selectedTopic:', selectedTopic?.title, 'selectedZitat:', selectedZitat?.text?.slice(0, 30));
   const canStart = selectedTopic && selectedZitat;
+  console.log('[TELC Idle] canStart:', !!canStart);
   const hasContent = topics.length > 0 && zitate.length > 0;
 
   if (!hasContent) {
