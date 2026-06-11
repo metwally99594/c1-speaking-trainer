@@ -250,7 +250,8 @@ export default function TELCModule() {
         return (
           <Teil1APhase
             recording={stt.recording} processing={stt.processing}
-            transcript={stt.transcript} fallbackMode={stt.fallbackMode} mediaError={stt.mediaError}
+            transcript={stt.transcript} fallbackMode={stt.fallbackMode}
+            mediaError={stt.mediaError} error={stt.error} debugInfo={stt.debugInfo}
             startRecording={stt.startRecording} stopRecording={stt.stopRecording}
             setFallbackTranscript={stt.setFallbackTranscript} onTranscriptReady={handleTeil1ATranscript}
           />

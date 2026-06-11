@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Timer from '../components/Timer';
 import RecordButton, { STATES } from '../components/RecordButton';
 import { DURATION } from '../types';
@@ -9,6 +9,8 @@ interface Teil1APhaseProps {
   transcript: string;
   fallbackMode: boolean;
   mediaError: string | null;
+  error: string | null;
+  debugInfo: Record<string, unknown>;
   startRecording: () => void;
   stopRecording: () => void;
   setFallbackTranscript: (text: string) => void;
@@ -17,9 +19,12 @@ interface Teil1APhaseProps {
 
 export default function Teil1APhase({
   recording, processing, transcript, fallbackMode, mediaError,
+  error, debugInfo,
   startRecording, stopRecording, setFallbackTranscript,
   onTranscriptReady,
 }: Teil1APhaseProps) {
+  const [showDebug, setShowDebug] = useState(false);
+
   useEffect(() => {
     if (transcript && !processing && !fallbackMode) {
       onTranscriptReady(transcript);
@@ -47,9 +52,41 @@ export default function Teil1APhase({
         <div style={{
           background: 'rgba(239,68,68,0.08)', borderRadius: 10,
           border: '1px solid rgba(239,68,68,0.2)', padding: 14, marginBottom: 16,
-          fontSize: 13, color: '#ef4444',
         }}>
-          Mikrofonfehler: {mediaError}
+          <p style={{ fontSize: 13, fontWeight: 600, margin: '0 0 4px', color: '#ef4444' }}>
+            Mikrofonfehler
+          </p>
+          <p style={{ fontSize: 13, margin: '0 0 10px', color: '#fca5a5' }}>{mediaError}</p>
+          <button
+            onClick={startRecording}
+            style={{
+              padding: '8px 16px', borderRadius: 8, border: 'none',
+              background: '#3b82f6', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            Erneut versuchen
+          </button>
+        </div>
+      )}
+
+      {error && !mediaError && (
+        <div style={{
+          background: 'rgba(239,68,68,0.08)', borderRadius: 10,
+          border: '1px solid rgba(239,68,68,0.2)', padding: 14, marginBottom: 16,
+        }}>
+          <p style={{ fontSize: 13, fontWeight: 600, margin: '0 0 4px', color: '#ef4444' }}>
+            Fehler bei der Transkription
+          </p>
+          <p style={{ fontSize: 13, margin: '0 0 10px', color: '#fca5a5' }}>{error}</p>
+          <button
+            onClick={startRecording}
+            style={{
+              padding: '8px 16px', borderRadius: 8, border: 'none',
+              background: '#3b82f6', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            Erneut versuchen
+          </button>
         </div>
       )}
 
@@ -66,7 +103,7 @@ export default function Teil1APhase({
         />
       </div>
 
-      {fallbackMode && (
+      {fallbackMode && !error && (
         <div style={{
           background: 'rgba(245,158,11,0.08)', borderRadius: 10,
           border: '1px solid rgba(245,158,11,0.2)', padding: 14, marginBottom: 16,
@@ -98,6 +135,32 @@ export default function Teil1APhase({
           >
             Text übernehmen
           </button>
+        </div>
+      )}
+
+      {Object.keys(debugInfo).length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <button
+            onClick={() => setShowDebug(!showDebug)}
+            style={{
+              padding: '4px 8px', borderRadius: 4,
+              border: '1px solid rgba(100,116,139,0.15)',
+              background: 'transparent', color: '#64748b',
+              fontSize: 11, cursor: 'pointer',
+            }}
+          >
+            {showDebug ? 'Debug ausblenden' : 'Debug anzeigen'}
+          </button>
+          {showDebug && (
+            <pre style={{
+              marginTop: 6, padding: 10, borderRadius: 6,
+              background: 'rgba(0,0,0,0.3)', color: '#94a3b8',
+              fontSize: 11, lineHeight: 1.5, overflow: 'auto',
+              maxHeight: 200,
+            }}>
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          )}
         </div>
       )}
     </div>

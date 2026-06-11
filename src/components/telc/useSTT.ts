@@ -22,6 +22,7 @@ interface STTHook {
   setFallbackTranscript: (text: string) => void;
   reset: () => void;
   mediaError: string | null;
+  debugInfo: Record<string, unknown>;
 }
 
 export default function useSTT(): STTHook {
@@ -31,6 +32,7 @@ export default function useSTT(): STTHook {
   const [error, setError] = useState<string | null>(null);
   const [fallbackMode, setFallbackMode] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<Record<string, unknown>>({});
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -42,15 +44,17 @@ export default function useSTT(): STTHook {
     setTranscript('');
     setFallbackMode(false);
     setMediaError(null);
+    setDebugInfo({});
     chunksRef.current = [];
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
+      console.log('[TELC STT] getUserMedia succeeded');
 
       const mimeType = getSupportedMimeType();
       mimeTypeRef.current = mimeType;
-      console.log('[TELC STT] Using MIME:', mimeType || 'default');
+      console.log('[TELC STT] MIME type selected:', mimeType || 'default (browser chooses)');
 
       const recorder = new MediaRecorder(stream, {
         mimeType: mimeType || undefined,
@@ -59,15 +63,37 @@ export default function useSTT(): STTHook {
       mediaRecorderRef.current = recorder;
 
       recorder.ondataavailable = (e: BlobEvent) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data);
+          console.log('[TELC STT] ondataavailable chunk size:', e.data.size, 'total chunks:', chunksRef.current.length);
+        } else {
+          console.log('[TELC STT] ondataavailable EMPTY chunk — skipped');
+        }
       };
 
       recorder.onstop = async () => {
         setRecording(false);
-        setProcessing(true);
+        console.log('[TELC STT] recording stopped, chunks:', chunksRef.current.length);
 
         const recordedMime = mimeTypeRef.current || 'audio/webm';
         const audioBlob = new Blob(chunksRef.current, { type: recordedMime });
+        const totalSize = audioBlob.size;
+        console.log('[TELC STT] total blob size:', totalSize, 'type:', recordedMime);
+
+        if (totalSize === 0) {
+          console.error('[TELC STT] EMPTY BLOB — no audio data captured');
+          setError('Keine Audiodaten — bitte Mikrofon prüfen');
+          setFallbackMode(true);
+          setProcessing(false);
+          setDebugInfo({ blobSize: 0, error: 'empty blob' });
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+          }
+          return;
+        }
+
+        setProcessing(true);
 
         try {
           const formData = new FormData();
@@ -76,28 +102,43 @@ export default function useSTT(): STTHook {
             : 'webm';
           formData.append('file', audioBlob, `recording.${ext}`);
 
+          console.log('[TELC STT] sending to /api/transcribe, file:', `recording.${ext}`, 'size:', totalSize);
+          console.log('[TELC STT] FormData keys:', Array.from(formData.keys()));
+
           const response = await fetch('/api/transcribe', {
             method: 'POST',
-            headers: { 'Content-Type': recordedMime },
             body: formData,
           });
 
+          console.log('[TELC STT] /api/transcribe status:', response.status);
+          setDebugInfo(prev => ({ ...prev, apiStatus: response.status }));
+
           if (!response.ok) {
-            throw new Error(`Transcription failed: ${response.status}`);
+            const errorBody = await response.text().catch(() => '');
+            console.error('[TELC STT] /api/transcribe error body:', errorBody);
+            throw new Error(`Transkription fehlgeschlagen (${response.status}): ${errorBody}`);
           }
 
           const data = await response.json();
+          console.log('[TELC STT] /api/transcribe response:', JSON.stringify(data).slice(0, 300));
+          setDebugInfo(prev => ({ ...prev, apiResponse: { ...data, _truncated: true } }));
+
           const text = data.text || data.transcript || '';
-          setTranscript(text);
+          console.log('[TELC STT] transcript text length:', text.length);
 
           if (!text.trim()) {
+            console.warn('[TELC STT] empty transcript from Groq');
             setFallbackMode(true);
-            setError('Leerer Transkript erhalten');
+            setError('Kein Text erkannt — bitte nochmals sprechen');
+          } else {
+            setTranscript(text);
           }
         } catch (err) {
           console.error('[TELC STT] Error:', err);
-          setError(err instanceof Error ? err.message : 'Transkription fehlgeschlagen');
+          const msg = err instanceof Error ? err.message : 'Transkription fehlgeschlagen';
+          setError(msg);
           setFallbackMode(true);
+          setDebugInfo(prev => ({ ...prev, fetchError: msg }));
         } finally {
           setProcessing(false);
         }
@@ -109,6 +150,7 @@ export default function useSTT(): STTHook {
       };
 
       recorder.onerror = () => {
+        console.error('[TELC STT] MediaRecorder error');
         setRecording(false);
         setError('Aufnahmefehler');
         setFallbackMode(true);
@@ -118,8 +160,9 @@ export default function useSTT(): STTHook {
         }
       };
 
-      recorder.start(1000);
+      recorder.start(100);
       setRecording(true);
+      console.log('[TELC STT] MediaRecorder started with timeslice 100ms');
     } catch (err) {
       console.error('[TELC STT] getUserMedia error:', err);
       setMediaError(err instanceof Error ? err.message : 'Mikrofonzugriff verweigert');
@@ -136,6 +179,7 @@ export default function useSTT(): STTHook {
   const setFallbackTranscript = useCallback((text: string) => {
     setTranscript(text);
     setFallbackMode(false);
+    setError(null);
   }, []);
 
   const reset = useCallback(() => {
@@ -145,6 +189,7 @@ export default function useSTT(): STTHook {
     setError(null);
     setFallbackMode(false);
     setMediaError(null);
+    setDebugInfo({});
     chunksRef.current = [];
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop());
@@ -163,5 +208,6 @@ export default function useSTT(): STTHook {
     setFallbackTranscript,
     reset,
     mediaError,
+    debugInfo,
   };
 }
