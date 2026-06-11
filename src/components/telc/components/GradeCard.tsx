@@ -18,7 +18,7 @@ interface GradeCardProps {
 export default function GradeCard({ criterion, grade, label }: GradeCardProps) {
   const colors = GRADE_COLORS[grade] || GRADE_COLORS.B;
   const points = gradeToPoints(grade, criterion);
-  const max = maxPointsFor(criterion);
+  const max = maxPointsFor();
 
   return (
     <div style={{

@@ -9,14 +9,14 @@ import useTELCSession from './useTELCSession';
 import IdlePhase from './phases/IdlePhase';
 import PrepPhase from './phases/PrepPhase';
 import Teil1APhase from './phases/Teil1APhase';
-import Teil1BAIPhase from './phases/Teil1BAIPhase';
-import Teil1AAIPhase from './phases/Teil1AAIPhase';
-import Teil1BCandidateListensPhase from './phases/Teil1BCandidateListensPhase';
+import ListenPhase from './phases/ListenPhase';
+import RecordPhase from './phases/RecordPhase';
 import Teil2Phase from './phases/Teil2Phase';
 import EvaluationPhase from './phases/EvaluationPhase';
 import SelfAssessPhase from './phases/SelfAssessPhase';
 import ResultsPhase from './phases/ResultsPhase';
 import TELCAdmin from './admin/TELCAdmin';
+import { DURATION } from './types';
 
 export default function TELCModule() {
   const [view, setView] = useState<'exam' | 'admin'>('exam');
@@ -64,24 +64,21 @@ export default function TELCModule() {
   const handleTeil1ATranscript = useCallback((text: string) => {
     setTranscripts(prev => ({ ...prev, teil_1a: text }));
     session.saveSession({ transcripts: { ...transcripts, teil_1a: text } } as never);
-    setPhase(PHASES.TEIL_1B_AI_LISTENS);
+    setPhase(PHASES.TEIL_1B_AI_SUMMARIZES);
   }, [transcripts, session]);
 
+  // TEIL_1B_AI_SUMMARIZES — AI summarizes + asks questions
   useEffect(() => {
-    if (phase === PHASES.TEIL_1B_AI_LISTENS && transcripts.teil_1a && !aiPartnerResponse && !ai.loading) {
+    if (phase === PHASES.TEIL_1B_AI_SUMMARIZES && !aiPartnerResponse && !ai.loading && currentTopic) {
       ai.callPartner(
-        'TEIL_1B',
-        `${currentTopic?.title}: ${currentTopic?.prompt}`,
+        'TEIL_1B_SUMMARIZE',
+        `${currentTopic.title}: ${currentTopic.prompt}`,
         transcripts.teil_1a,
       ).then(response => {
         setAiPartnerResponse(response || '');
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, transcripts.teil_1a, currentTopic, ai]);
-
-  const handleAiResponseDone = useCallback(() => {
-  }, []);
+  }, [phase, aiPartnerResponse, ai, currentTopic, transcripts.teil_1a]);
 
   const handleTeil1BAnswers = useCallback((text: string) => {
     setTranscripts(prev => ({ ...prev, teil_1b_answers: text }));
@@ -90,46 +87,38 @@ export default function TELCModule() {
     setPhase(PHASES.TEIL_1A_AI_PRESENTS);
   }, [transcripts, session]);
 
+  // TEIL_1A_AI_PRESENTS — AI presents on the topic from different angle
   useEffect(() => {
-    if (phase === PHASES.TEIL_1A_AI_PRESENTS && !aiPartnerResponse && !ai.loading) {
+    if (phase === PHASES.TEIL_1A_AI_PRESENTS && !aiPartnerResponse && !ai.loading && currentTopic) {
       ai.callPartner(
         'TEIL_1A',
-        `${currentTopic?.title}: ${currentTopic?.prompt}`,
+        `${currentTopic.title}: ${currentTopic.prompt}`,
         `The candidate presented on: ${transcripts.teil_1a?.slice(0, 200)}...`,
       ).then(response => {
         setAiPartnerResponse(response || '');
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, currentTopic, transcripts.teil_1a, ai]);
-
-  const handleAiPresentationDone = useCallback(() => {
-  }, []);
+  }, [phase, aiPartnerResponse, ai, currentTopic, transcripts.teil_1a]);
 
   const handleTeil1BQuestions = useCallback((text: string) => {
     setTranscripts(prev => ({ ...prev, teil_1b_questions: text }));
     session.saveSession({ transcripts: { ...transcripts, teil_1b_questions: text } } as never);
     setAiPartnerResponse(null);
-    setPhase(PHASES.TEIL_1B_CANDIDATE_LISTENS);
+    setPhase(PHASES.TEIL_1B_AI_ANSWERS);
   }, [transcripts, session]);
 
+  // TEIL_1B_AI_ANSWERS — AI briefly answers candidate's questions
   useEffect(() => {
-    if (phase === PHASES.TEIL_1B_CANDIDATE_LISTENS && transcripts.teil_1b_questions && !aiPartnerResponse && !ai.loading) {
+    if (phase === PHASES.TEIL_1B_AI_ANSWERS && !aiPartnerResponse && !ai.loading && currentTopic) {
       ai.callPartner(
-        'TEIL_1B',
-        `The candidate asked questions about the AI presentation. Topic: ${currentTopic?.title}`,
+        'TEIL_1B_ANSWERS',
+        `The candidate asked questions about the AI presentation. Topic: ${currentTopic.title}`,
         transcripts.teil_1b_questions,
       ).then(response => {
         setAiPartnerResponse(response || '');
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, transcripts.teil_1b_questions, currentTopic, ai]);
-
-  const handleTeil1BDone = useCallback(() => {
-    setAiPartnerResponse(null);
-    setPhase(PHASES.TEIL_2_DISKUSSION);
-  }, []);
+  }, [phase, aiPartnerResponse, ai, currentTopic, transcripts.teil_1b_questions]);
 
   const handleTeil2Turns = useCallback((turns: DiscussionTurn[]) => {
     setTranscripts(prev => ({ ...prev, teil_2_turns: turns }));
@@ -171,6 +160,21 @@ export default function TELCModule() {
     resetExam();
   }, [session, resetExam]);
 
+  const handleContinueToAnswers = useCallback(() => {
+    setAiPartnerResponse(null);
+    setPhase(PHASES.TEIL_1B_CANDIDATE_ANSWERS);
+  }, []);
+
+  const handleContinueToQuestions = useCallback(() => {
+    setAiPartnerResponse(null);
+    setPhase(PHASES.TEIL_1B_CANDIDATE_QUESTIONS);
+  }, []);
+
+  const handleContinueToDiscussion = useCallback(() => {
+    setAiPartnerResponse(null);
+    setPhase(PHASES.TEIL_2_DISKUSSION);
+  }, []);
+
   if (view === 'admin') {
     return <TELCAdmin onBack={() => setView('exam')} />;
   }
@@ -201,7 +205,7 @@ export default function TELCModule() {
                 {s.ai_evaluation && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: s.ai_evaluation.passed ? '#22c55e' : '#ef4444' }}>
-                      {s.ai_evaluation.total_points}/48
+                      {s.ai_evaluation.total_points}/40
                     </span>
                     <span style={{
                       fontSize: 11, padding: '2px 8px', borderRadius: 4,
@@ -256,33 +260,62 @@ export default function TELCModule() {
             setFallbackTranscript={stt.setFallbackTranscript} onTranscriptReady={handleTeil1ATranscript}
           />
         );
-      case PHASES.TEIL_1B_AI_LISTENS:
+      case PHASES.TEIL_1B_AI_SUMMARIZES:
         return (
-          <Teil1BAIPhase
+          <ListenPhase
+            title="Teil 1B — Zusammenfassung"
+            subtitle="Hören Sie die Zusammenfassung Ihres Partners"
             aiResponse={aiPartnerResponse} aiLoading={ai.loading} aiError={ai.error}
-            onAiResponseDone={handleAiResponseDone}
+            onContinue={handleContinueToAnswers}
+            continueLabel="Weiter — Fragen beantworten"
+          />
+        );
+      case PHASES.TEIL_1B_CANDIDATE_ANSWERS:
+        return (
+          <RecordPhase
+            title="Teil 1B — Fragen beantworten"
+            subtitle="Beantworten Sie die Fragen (1 Minute)"
+            duration={DURATION.TEIL_1B_ANSWERS}
             recording={stt.recording} processing={stt.processing}
             transcript={stt.transcript} fallbackMode={stt.fallbackMode}
+            error={stt.error}
             startRecording={stt.startRecording} stopRecording={stt.stopRecording}
-            onAnswersReady={handleTeil1BAnswers}
+            setFallbackTranscript={stt.setFallbackTranscript}
+            onTranscriptReady={handleTeil1BAnswers}
           />
         );
       case PHASES.TEIL_1A_AI_PRESENTS:
         return (
-          <Teil1AAIPhase
+          <ListenPhase
+            title="Teil 1A — Präsentation Ihres Partners"
+            subtitle="Hören Sie die Präsentation Ihres Partners"
             aiResponse={aiPartnerResponse} aiLoading={ai.loading} aiError={ai.error}
-            onAiResponseDone={handleAiPresentationDone}
-            recording={stt.recording} processing={stt.processing}
-            transcript={stt.transcript} fallbackMode={stt.fallbackMode}
-            startRecording={stt.startRecording} stopRecording={stt.stopRecording}
-            onQuestionsReady={handleTeil1BQuestions}
+            onContinue={handleContinueToQuestions}
+            continueLabel="Weiter — Zusammenfassung geben"
           />
         );
-      case PHASES.TEIL_1B_CANDIDATE_LISTENS:
+      case PHASES.TEIL_1B_CANDIDATE_QUESTIONS:
         return (
-          <Teil1BCandidateListensPhase
+          <RecordPhase
+            title="Teil 1B — Zusammenfassung & Fragen"
+            subtitle="Fassen Sie die Präsentation zusammen und stellen Sie 1-2 Fragen (1 Minute)"
+            duration={DURATION.TEIL_1B_QUESTIONS}
+            recording={stt.recording} processing={stt.processing}
+            transcript={stt.transcript} fallbackMode={stt.fallbackMode}
+            error={stt.error}
+            startRecording={stt.startRecording} stopRecording={stt.stopRecording}
+            setFallbackTranscript={stt.setFallbackTranscript}
+            onTranscriptReady={handleTeil1BQuestions}
+          />
+        );
+      case PHASES.TEIL_1B_AI_ANSWERS:
+        return (
+          <ListenPhase
+            title="Antwort Ihres Partners"
+            subtitle="Hören Sie die Antworten auf Ihre Fragen"
             aiResponse={aiPartnerResponse} aiLoading={ai.loading} aiError={ai.error}
-            onComplete={handleTeil1BDone}
+            onContinue={handleContinueToDiscussion}
+            continueLabel="Weiter zur Diskussion"
           />
         );
       case PHASES.TEIL_2_DISKUSSION:

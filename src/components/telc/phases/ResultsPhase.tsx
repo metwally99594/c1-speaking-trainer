@@ -11,9 +11,7 @@ interface ResultsPhaseProps {
 }
 
 const CRITERIA: GradeCriterion[] = [
-  'aufgabengerechtheit_1a',
-  'aufgabengerechtheit_1b',
-  'diskussionsfuehrung',
+  'aufgabengerechtheit',
   'fluessigkeit',
   'repertoire',
   'grammatische_richtigkeit',

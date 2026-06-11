@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Play, Settings } from 'lucide-react';
-import type { PraesentationTopic, Zitat } from '../types';
+import type { TopicPair, PraesentationTopic, Zitat } from '../types';
 
 interface IdlePhaseProps {
   onStart: (topic: PraesentationTopic, zitat: Zitat) => void;
@@ -13,16 +13,28 @@ function loadFromStorage<T>(key: string): T[] {
 }
 
 export default function IdlePhase({ onStart, onNavigateToAdmin }: IdlePhaseProps) {
-  const [topics] = useState<PraesentationTopic[]>(() => loadFromStorage<PraesentationTopic>('telc_topics'));
+  const [pairs] = useState<TopicPair[]>(() => loadFromStorage<TopicPair>('telc_topic_pairs'));
   const [zitate] = useState<Zitat[]>(() => loadFromStorage<Zitat>('telc_zitate'));
-  const [selectedTopic, setSelectedTopic] = useState<PraesentationTopic | null>(null);
+  const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
+  const [selectedChoice, setSelectedChoice] = useState<'a' | 'b' | null>(null);
   const [selectedZitat, setSelectedZitat] = useState<Zitat | null>(null);
 
-  console.log('[TELC Idle] topics:', topics.length, 'zitate:', zitate.length);
-  console.log('[TELC Idle] selectedTopic:', selectedTopic?.title, 'selectedZitat:', selectedZitat?.text?.slice(0, 30));
-  const canStart = selectedTopic && selectedZitat;
-  console.log('[TELC Idle] canStart:', !!canStart);
-  const hasContent = topics.length > 0 && zitate.length > 0;
+  const hasContent = pairs.length > 0 && zitate.length > 0;
+  const canStart = selectedPairId && selectedChoice && selectedZitat;
+
+  const handleStart = () => {
+    if (!canStart) return;
+    const pair = pairs.find(p => p.id === selectedPairId);
+    if (!pair) return;
+    const side = selectedChoice === 'a' ? pair.topic_a : pair.topic_b;
+    const topic: PraesentationTopic = {
+      id: pair.id,
+      title: side.title,
+      prompt: side.prompt,
+      tips: side.tips || [],
+    };
+    onStart(topic, selectedZitat);
+  };
 
   if (!hasContent) {
     return (
@@ -35,7 +47,7 @@ export default function IdlePhase({ onStart, onNavigateToAdmin }: IdlePhaseProps
           border: '1px solid rgba(245,158,11,0.2)', padding: 20, marginBottom: 20, textAlign: 'center',
         }}>
           <p style={{ fontSize: 14, color: '#f59e0b', margin: '0 0 12px', lineHeight: 1.6 }}>
-            Bitte fügen Sie zuerst Themen und Zitate hinzu.
+            Bitte fügen Sie zuerst Themenvarianten und Zitate hinzu.
           </p>
           <button
             onClick={onNavigateToAdmin}
@@ -74,37 +86,45 @@ export default function IdlePhase({ onStart, onNavigateToAdmin }: IdlePhaseProps
           TELC C1 Mündlicher Ausdruck
         </h2>
         <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>
-          Wählen Sie ein Thema und ein Zitat für die Prüfung
+          Wählen Sie eine Themenvariante und ein Zitat
         </p>
       </div>
 
       <div style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 10px', color: '#f1f5f9' }}>
-          Präsentationsthema
+          Themenvarianten
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {topics.map(topic => (
-            <button
-              key={topic.id}
-              onClick={() => setSelectedTopic(topic)}
-              style={{
-                textAlign: 'left', padding: '12px 14px', borderRadius: 10,
-                border: selectedTopic?.id === topic.id
-                  ? '2px solid #3b82f6'
-                  : '1px solid rgba(100,116,139,0.2)',
-                background: selectedTopic?.id === topic.id
-                  ? 'rgba(59,130,246,0.08)'
-                  : 'rgba(100,116,139,0.04)',
-                cursor: 'pointer', transition: 'all 0.15s',
-              }}
-            >
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: '#f1f5f9' }}>
-                {topic.title}
+          {pairs.map(pair => (
+            <div key={pair.id} style={{
+              padding: 12, borderRadius: 10,
+              border: selectedPairId === pair.id
+                ? '2px solid #3b82f6'
+                : '1px solid rgba(100,116,139,0.2)',
+              background: selectedPairId === pair.id
+                ? 'rgba(59,130,246,0.08)'
+                : 'rgba(100,116,139,0.04)',
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#3b82f6', marginBottom: 8 }}>
+                {pair.variante}
               </div>
-              <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
-                {topic.prompt}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <SelectionCard
+                  label="Thema A"
+                  title={pair.topic_a.title}
+                  prompt={pair.topic_a.prompt}
+                  selected={selectedPairId === pair.id && selectedChoice === 'a'}
+                  onClick={() => { setSelectedPairId(pair.id); setSelectedChoice('a'); }}
+                />
+                <SelectionCard
+                  label="Thema B"
+                  title={pair.topic_b.title}
+                  prompt={pair.topic_b.prompt}
+                  selected={selectedPairId === pair.id && selectedChoice === 'b'}
+                  onClick={() => { setSelectedPairId(pair.id); setSelectedChoice('b'); }}
+                />
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>
@@ -141,7 +161,7 @@ export default function IdlePhase({ onStart, onNavigateToAdmin }: IdlePhaseProps
       </div>
 
       <button
-        onClick={() => canStart && onStart(selectedTopic!, selectedZitat!)}
+        onClick={handleStart}
         disabled={!canStart}
         style={{
           width: '100%', padding: '14px 20px', borderRadius: 12, border: 'none',
@@ -156,5 +176,33 @@ export default function IdlePhase({ onStart, onNavigateToAdmin }: IdlePhaseProps
         Prüfung starten
       </button>
     </div>
+  );
+}
+
+function SelectionCard({
+  label, title, prompt, selected, onClick,
+}: {
+  label: string; title: string; prompt: string; selected: boolean; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        textAlign: 'left', padding: 10, borderRadius: 8, cursor: 'pointer',
+        border: selected ? '2px solid #3b82f6' : '1px solid rgba(100,116,139,0.15)',
+        background: selected ? 'rgba(59,130,246,0.1)' : 'rgba(100,116,139,0.03)',
+        transition: 'all 0.15s',
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#3b82f6', marginBottom: 3 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', marginBottom: 3 }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>
+        {prompt}
+      </div>
+    </button>
   );
 }

@@ -40,24 +40,30 @@ export default function useAIPartner() {
     const systemPrompt = `You are a German C1-level exam partner in a TELC C1 Mündlicher Ausdruck simulation.
 Your role changes per phase:
 
-TEIL 1B (after candidate's Präsentation):
+TEIL_1B_SUMMARIZE (after candidate's Präsentation):
 - Give a 3-4 sentence Zusammenfassung of what the candidate said
 - Ask 1-2 genuine follow-up questions related to their presentation
 - Speak naturally at C1 level — not too formal, not casual
 - Language: German only
 
-TEIL 1A (your own Präsentation):
+TEIL_1A (your own Präsentation):
 - Present on the topic from a different angle than the candidate
 - 90-120 words, structured with a thesis, 2 arguments, conclusion
 - Language: German only
 
-TEIL 2 (Diskussion):
+TEIL_2 (Diskussion):
 - You have a genuine opinion on the Zitat
 - Defend your position with arguments
 - Challenge the candidate's view politely but firmly
 - Ask follow-up questions to deepen the discussion
 - Vary your reactions: agree partially, disagree, ask for clarification
 - Never be neutral or passive
+- Refer to the provided discussion questions naturally
+- Language: German only
+
+TEIL_1B_ANSWERS (brief answers to candidate's questions):
+- Answer each question concisely (1-3 sentences each)
+- Be direct and natural
 - Language: German only
 
 Current phase: ${phase}
@@ -103,14 +109,19 @@ B = Good (clear C1 level)
 C = Adequate (B2 level, meets minimum)
 D = Insufficient (below B2)
 
-IMPORTANT: "Aussprache und Intonation" CANNOT be properly evaluated from text transcripts.
+CRITERIA (official TELC C1 Hauptkriterien):
+1. Aufgabengerechtheit — Did the candidate fulfill the task?
+2. Flüssigkeit — Fluency and coherence of speech
+3. Repertoire — Range of vocabulary and expressions
+4. Grammatische Richtigkeit — Grammatical accuracy
+5. Aussprache — Pronunciation and intonation
+
+IMPORTANT: "Aussprache" CANNOT be properly evaluated from text transcripts.
 Give a default B unless obvious phonetic spelling errors indicate mispronunciation.
 
 Respond ONLY with a JSON object, no markdown, no explanation outside the JSON:
 {
-  "aufgabengerechtheit_1a": "A|B|C|D",
-  "aufgabengerechtheit_1b": "A|B|C|D",
-  "diskussionsfuehrung": "A|B|C|D",
+  "aufgabengerechtheit": "A|B|C|D",
   "fluessigkeit": "A|B|C|D",
   "repertoire": "A|B|C|D",
   "grammatische_richtigkeit": "A|B|C|D",

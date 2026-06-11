@@ -4,6 +4,13 @@ import RecordButton, { STATES } from '../components/RecordButton';
 import { DURATION } from '../types';
 import type { Zitat, DiscussionTurn } from '../types';
 
+const DISCUSSION_QUESTIONS = [
+  'Inwieweit stimmen Sie der Aussage zu?',
+  'Welche Erfahrungen haben Sie persönlich mit diesem Thema gemacht?',
+  'Sehen Sie Vor- oder Nachteile in der dargestellten Position?',
+  'Welche Rolle spielt dieses Thema Ihrer Meinung nach in der heutigen Gesellschaft?',
+];
+
 interface Teil2PhaseProps {
   zitat: Zitat;
   callPartner: (phase: string, content: string, candidateInput: string) => Promise<string | null>;
@@ -50,22 +57,21 @@ export default function Teil2Phase({
     onTurnsReady(turnsRef.current);
   }, [recording, stopRecording, onTurnsReady]);
 
-  // Detect discussion end
   useEffect(() => {
     if (turns.length >= 6 && turns[turns.length - 1]?.role === 'ai' && !endedRef.current) {
       handleTimerEnd();
     }
   }, [turns, handleTimerEnd]);
 
-  // Open discussion with AI
   useEffect(() => {
     let cancelled = false;
     const openDiscussion = async () => {
       setAiLoading(true);
       try {
+        const questionsText = DISCUSSION_QUESTIONS.map((q, i) => `${i + 1}. ${q}`).join('\n');
         const response = await callPartner(
           'TEIL_2',
-          `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})`,
+          `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})\n\nDiskussionsfragen:\n${questionsText}`,
           '',
         );
         if (!mountedRef.current || cancelled) return;
@@ -79,10 +85,8 @@ export default function Teil2Phase({
     };
     openDiscussion();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handle candidate transcript → call AI
   useEffect(() => {
     if (!transcript || processing || fallbackMode || discussionDone) return;
     addTurn('candidate', transcript);
@@ -92,11 +96,11 @@ export default function Teil2Phase({
       setAiLoading(true);
       setAiError(null);
       try {
-        const turnsSoFar = turnsRef.current;
-        const lastCandidate = turnsSoFar.filter(t => t.role === 'candidate').pop()?.text || '';
+        const lastCandidate = turnsRef.current.filter(t => t.role === 'candidate').pop()?.text || '';
+        const questionsText = DISCUSSION_QUESTIONS.map((q, i) => `${i + 1}. ${q}`).join('\n');
         const response = await callPartner(
           'TEIL_2',
-          `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})`,
+          `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})\n\nDiskussionsfragen:\n${questionsText}`,
           lastCandidate,
         );
         if (!mountedRef.current || cancelled) return;
@@ -110,7 +114,6 @@ export default function Teil2Phase({
     };
     getAiResponse();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript, processing, fallbackMode, discussionDone]);
 
   const isCandidateTurn = !aiLoading && !discussionDone && turns.length > 0
@@ -134,7 +137,7 @@ export default function Teil2Phase({
 
       <div style={{
         background: 'rgba(245,158,11,0.08)', borderRadius: 10,
-        border: '1px solid rgba(245,158,11,0.2)', padding: 14, marginBottom: 16,
+        border: '1px solid rgba(245,158,11,0.2)', padding: 14, marginBottom: 12,
       }}>
         <p style={{ fontSize: 13, fontStyle: 'italic', margin: '0 0 4px', color: '#f1f5f9' }}>
           „{zitat.text}
@@ -145,8 +148,22 @@ export default function Teil2Phase({
       </div>
 
       <div style={{
+        background: 'rgba(59,130,246,0.05)', borderRadius: 10,
+        border: '1px solid rgba(59,130,246,0.15)', padding: 12, marginBottom: 12,
+      }}>
+        <p style={{ fontSize: 11, fontWeight: 600, color: '#3b82f6', margin: '0 0 6px' }}>
+          Diskussionsfragen
+        </p>
+        <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: '#cbd5e1', lineHeight: 1.7 }}>
+          {DISCUSSION_QUESTIONS.map((q, i) => (
+            <li key={i}>{q}</li>
+          ))}
+        </ul>
+      </div>
+
+      <div style={{
         display: 'flex', flexDirection: 'column', gap: 8,
-        maxHeight: 240, overflowY: 'auto', marginBottom: 16,
+        maxHeight: 200, overflowY: 'auto', marginBottom: 16,
       }}>
         {turns.map((turn, i) => (
           <div key={i} style={{
@@ -175,7 +192,7 @@ export default function Teil2Phase({
 
       {aiLoading && (
         <div style={{ textAlign: 'center', padding: 12 }}>
-          <p style={{ color: '#94a3b8', fontSize: 13 }}>Partner antwortet... ⏳</p>
+          <p style={{ color: '#94a3b8', fontSize: 13 }}>Partner antwortet...</p>
         </div>
       )}
 
@@ -209,9 +226,10 @@ export default function Teil2Phase({
                 setAiLoading(true);
                 setAiError(null);
                 try {
+                  const questionsText = DISCUSSION_QUESTIONS.map((q, i) => `${i + 1}. ${q}`).join('\n');
                   const response = await callPartner(
                     'TEIL_2',
-                    `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})`,
+                    `Zitat: "${zitat.text}" — ${zitat.author} (${zitat.discussion_angle})\n\nDiskussionsfragen:\n${questionsText}`,
                     val,
                   );
                   if (!mountedRef.current) return;

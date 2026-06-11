@@ -1,13 +1,26 @@
 export type Grade = 'A' | 'B' | 'C' | 'D';
 
 export type GradeCriterion =
-  | 'aufgabengerechtheit_1a'
-  | 'aufgabengerechtheit_1b'
-  | 'diskussionsfuehrung'
+  | 'aufgabengerechtheit'
   | 'fluessigkeit'
   | 'repertoire'
   | 'grammatische_richtigkeit'
   | 'aussprache';
+
+export interface TopicPair {
+  id: string;
+  variante: string;
+  topic_a: {
+    title: string;
+    prompt: string;
+    tips?: string[];
+  };
+  topic_b: {
+    title: string;
+    prompt: string;
+    tips?: string[];
+  };
+}
 
 export interface PraesentationTopic {
   id: string;
@@ -21,11 +34,6 @@ export interface Zitat {
   text: string;
   author: string;
   discussion_angle: string;
-}
-
-export interface TelcContent {
-  praesentation_topics: PraesentationTopic[];
-  zitate: Zitat[];
 }
 
 export interface EvalFeedback {
@@ -47,9 +55,7 @@ export interface ExamTranscripts {
 }
 
 export interface AIEvaluation {
-  aufgabengerechtheit_1a: Grade;
-  aufgabengerechtheit_1b: Grade;
-  diskussionsfuehrung: Grade;
+  aufgabengerechtheit: Grade;
   fluessigkeit: Grade;
   repertoire: Grade;
   grammatische_richtigkeit: Grade;
@@ -80,9 +86,11 @@ export type Phase =
   | 'IDLE'
   | 'PREP'
   | 'TEIL_1A_CANDIDATE'
-  | 'TEIL_1B_AI_LISTENS'
+  | 'TEIL_1B_AI_SUMMARIZES'
+  | 'TEIL_1B_CANDIDATE_ANSWERS'
   | 'TEIL_1A_AI_PRESENTS'
-  | 'TEIL_1B_CANDIDATE_LISTENS'
+  | 'TEIL_1B_CANDIDATE_QUESTIONS'
+  | 'TEIL_1B_AI_ANSWERS'
   | 'TEIL_2_DISKUSSION'
   | 'EVALUATION'
   | 'SELF_ASSESSMENT'
@@ -92,9 +100,11 @@ export const PHASES: Record<Phase, Phase> = {
   IDLE: 'IDLE',
   PREP: 'PREP',
   TEIL_1A_CANDIDATE: 'TEIL_1A_CANDIDATE',
-  TEIL_1B_AI_LISTENS: 'TEIL_1B_AI_LISTENS',
+  TEIL_1B_AI_SUMMARIZES: 'TEIL_1B_AI_SUMMARIZES',
+  TEIL_1B_CANDIDATE_ANSWERS: 'TEIL_1B_CANDIDATE_ANSWERS',
   TEIL_1A_AI_PRESENTS: 'TEIL_1A_AI_PRESENTS',
-  TEIL_1B_CANDIDATE_LISTENS: 'TEIL_1B_CANDIDATE_LISTENS',
+  TEIL_1B_CANDIDATE_QUESTIONS: 'TEIL_1B_CANDIDATE_QUESTIONS',
+  TEIL_1B_AI_ANSWERS: 'TEIL_1B_AI_ANSWERS',
   TEIL_2_DISKUSSION: 'TEIL_2_DISKUSSION',
   EVALUATION: 'EVALUATION',
   SELF_ASSESSMENT: 'SELF_ASSESSMENT',
@@ -111,9 +121,7 @@ export const GRADE_LABELS: Record<Grade, string> = {
 };
 
 export const CRITERIA_LABELS: Record<GradeCriterion, string> = {
-  aufgabengerechtheit_1a: 'Aufgabengerechtheit (Teil 1A)',
-  aufgabengerechtheit_1b: 'Aufgabengerechtheit (Teil 1B)',
-  diskussionsfuehrung: 'Diskussionsführung',
+  aufgabengerechtheit: 'Aufgabengerechtheit',
   fluessigkeit: 'Flüssigkeit',
   repertoire: 'Repertoire',
   grammatische_richtigkeit: 'Grammatische Richtigkeit',
@@ -121,7 +129,8 @@ export const CRITERIA_LABELS: Record<GradeCriterion, string> = {
 };
 
 export const LOCAL_STORAGE_KEYS = {
-  CONTENT: 'telc_content',
+  TOPIC_PAIRS: 'telc_topic_pairs',
+  ZITATE: 'telc_zitate',
   CURRENT_SESSION: 'telc_session_current',
   HISTORY: 'telc_history',
 } as const;
@@ -130,6 +139,8 @@ export const DURATION = {
   PREP: 20 * 60,
   TEIL_1A: 3 * 60,
   TEIL_1B_ANSWERS: 60,
-  TEIL_1B_QUESTIONS: 90,
+  TEIL_1B_QUESTIONS: 60,
+  TEIL_1B_AI_SUMMARIZE: 90,
+  TEIL_1B_AI_ANSWERS: 30,
   TEIL_2: 6 * 60,
 } as const;
