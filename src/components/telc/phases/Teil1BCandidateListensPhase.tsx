@@ -47,7 +47,7 @@ export default function Teil1BCandidateListensPhase({
 
       {shownResponse && (
         <>
-          <TTSSpeaker text={shownResponse} speaking={false} onSpeak={() => {}} onStop={() => {}} />
+          <TTSSpeaker text={shownResponse} />
           <button
             onClick={onComplete}
             style={{

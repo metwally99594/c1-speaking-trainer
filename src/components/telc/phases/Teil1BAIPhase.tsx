@@ -70,7 +70,7 @@ export default function Teil1BAIPhase({
 
       {shownResponse && step === 'listening' && (
         <>
-          <TTSSpeaker text={shownResponse} speaking={false} onSpeak={() => {}} onStop={() => {}} />
+          <TTSSpeaker text={shownResponse} />
           <button
             onClick={() => { setStep('answering'); onAiResponseDone(); }}
             style={{

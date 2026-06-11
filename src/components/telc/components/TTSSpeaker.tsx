@@ -1,13 +1,13 @@
 import { Volume2, VolumeX } from 'lucide-react';
+import useTTS from '../useTTS';
 
 interface TTSSpeakerProps {
   text: string;
-  speaking: boolean;
-  onSpeak: () => void;
-  onStop: () => void;
 }
 
-export default function TTSSpeaker({ text, speaking, onSpeak, onStop }: TTSSpeakerProps) {
+export default function TTSSpeaker({ text }: TTSSpeakerProps) {
+  const { speak, stop, speaking } = useTTS();
+
   return (
     <div style={{
       background: 'rgba(59,130,246,0.05)',
@@ -17,15 +17,22 @@ export default function TTSSpeaker({ text, speaking, onSpeak, onStop }: TTSSpeak
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
         <button
-          onClick={speaking ? onStop : onSpeak}
+          onClick={speaking ? stop : () => speak(text)}
           style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            padding: 4, color: speaking ? '#ef4444' : '#3b82f6',
-            flexShrink: 0, marginTop: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            padding: '8px 14px', borderRadius: 8, flexShrink: 0,
+            border: speaking
+              ? '1px solid rgba(239,68,68,0.3)'
+              : '1px solid rgba(59,130,246,0.3)',
+            background: speaking
+              ? 'rgba(239,68,68,0.1)'
+              : 'rgba(59,130,246,0.1)',
+            color: speaking ? '#ef4444' : '#3b82f6',
+            cursor: 'pointer', fontSize: 13, fontWeight: 600,
           }}
-          title={speaking ? 'Stop' : 'Vorlesen'}
         >
-          {speaking ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          {speaking ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          {speaking ? 'Stop' : 'Anhören'}
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{
@@ -38,7 +45,7 @@ export default function TTSSpeaker({ text, speaking, onSpeak, onStop }: TTSSpeak
       </div>
       {speaking && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 3, height: 20, paddingLeft: 32,
+          display: 'flex', alignItems: 'center', gap: 3, height: 20, paddingLeft: 0, marginTop: 4,
         }}>
           {[1, 2, 3, 4].map(i => (
             <div key={i} style={{
