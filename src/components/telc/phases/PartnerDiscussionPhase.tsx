@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Timer from '../components/Timer';
+import RecordButton, { STATES } from '../components/RecordButton';
 import type { Zitat, DiscussionTurn } from '../types';
 import { DURATION } from '../types';
+import useSTT from '../useSTT';
 
 interface PartnerDiscussionPhaseProps {
   zitat: Zitat;
@@ -11,12 +13,20 @@ interface PartnerDiscussionPhaseProps {
 export default function PartnerDiscussionPhase({
   zitat, onTurnsReady,
 }: PartnerDiscussionPhaseProps) {
+  const stt = useSTT();
   const [turns, setTurns] = useState<DiscussionTurn[]>([]);
   const [activeRole, setActiveRole] = useState<'person_a' | 'person_b'>('person_a');
-  const [inputText, setInputText] = useState('');
+  const [fallbackText, setFallbackText] = useState('');
   const [discussionDone, setDiscussionDone] = useState(false);
   const turnsRef = useRef<DiscussionTurn[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const processedTranscriptRef = useRef('');
+  const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const {
+    transcript, processing, fallbackMode, recording, error,
+    startRecording, stopRecording, reset: sttReset,
+  } = stt;
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -29,21 +39,34 @@ export default function PartnerDiscussionPhase({
     setTurns(next);
   }, []);
 
-  const handleSend = useCallback(() => {
-    const text = inputText.trim();
+  // When STT finishes, attribute the transcript to the active role
+  useEffect(() => {
+    if (!transcript || processing || fallbackMode || discussionDone) return;
+    if (transcript === processedTranscriptRef.current) return;
+    processedTranscriptRef.current = transcript;
+    addTurn(activeRole, transcript);
+    sttReset();
+  }, [transcript, processing, fallbackMode, discussionDone, activeRole, addTurn, sttReset]);
+
+  const handleFallbackSend = useCallback(() => {
+    const text = fallbackTextareaRef.current?.value?.trim() || '';
     if (!text || discussionDone) return;
-    setInputText('');
     addTurn(activeRole, text);
-  }, [inputText, activeRole, discussionDone, addTurn]);
+    setFallbackText('');
+    if (fallbackTextareaRef.current) fallbackTextareaRef.current.value = '';
+    sttReset();
+  }, [activeRole, discussionDone, addTurn, sttReset]);
 
   const handleEnd = useCallback(() => {
     if (discussionDone) return;
+    if (recording) stopRecording();
     setDiscussionDone(true);
     onTurnsReady(turnsRef.current);
-  }, [discussionDone, onTurnsReady]);
+  }, [discussionDone, recording, stopRecording, onTurnsReady]);
 
   const roleLabel = (r: DiscussionTurn['role']) => r === 'person_a' ? 'Person A' : r === 'person_b' ? 'Person B' : '';
   const activeColor = activeRole === 'person_a' ? '#3b82f6' : '#22c55e';
+  const btnState = recording ? STATES.RECORDING : processing ? STATES.PROCESSING : STATES.IDLE;
 
   return (
     <div style={{ padding: '0 4px' }}>
@@ -102,19 +125,32 @@ export default function PartnerDiscussionPhase({
         <div ref={scrollRef} />
       </div>
 
+      {error && !fallbackMode && (
+        <div style={{
+          padding: 10, borderRadius: 8, marginBottom: 10,
+          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+          color: '#fca5a5', fontSize: 12,
+        }}>
+          {error}
+        </div>
+      )}
+
       {!discussionDone && (
         <div>
           <div style={{
-            display: 'flex', gap: 10, marginBottom: 10,
+            display: 'flex', gap: 10, marginBottom: 12,
           }}>
             <button
               onClick={() => setActiveRole('person_a')}
+              disabled={recording || processing}
               style={{
                 flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
                 background: activeRole === 'person_a'
                   ? 'rgba(59,130,246,0.2)' : 'rgba(100,116,139,0.08)',
                 color: activeRole === 'person_a' ? '#60a5fa' : '#64748b',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontSize: 13, fontWeight: 700,
+                cursor: (recording || processing) ? 'not-allowed' : 'pointer',
+                opacity: (recording || processing) ? 0.5 : 1,
                 transition: 'background 0.15s',
               }}
             >
@@ -122,46 +158,61 @@ export default function PartnerDiscussionPhase({
             </button>
             <button
               onClick={() => setActiveRole('person_b')}
+              disabled={recording || processing}
               style={{
                 flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
                 background: activeRole === 'person_b'
                   ? 'rgba(34,197,94,0.2)' : 'rgba(100,116,139,0.08)',
                 color: activeRole === 'person_b' ? '#4ade80' : '#64748b',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontSize: 13, fontWeight: 700,
+                cursor: (recording || processing) ? 'not-allowed' : 'pointer',
+                opacity: (recording || processing) ? 0.5 : 1,
                 transition: 'background 0.15s',
               }}
             >
               Person B spricht
             </button>
           </div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <textarea
-              value={inputText}
-              onChange={e => setInputText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder={`${roleLabel(activeRole)} schreibt hier...`}
-              rows={2}
-              style={{
-                flex: 1, padding: 10, borderRadius: 8, resize: 'none',
-                border: `1px solid ${activeColor}33`,
-                background: 'rgba(0,0,0,0.2)', color: '#f1f5f9',
-                fontSize: 13, lineHeight: 1.6,
-              }}
-            />
-            <button
-              onClick={handleSend}
-              disabled={!inputText.trim()}
-              style={{
-                padding: '10px 16px', borderRadius: 8, border: 'none',
-                background: inputText.trim() ? activeColor : 'rgba(100,116,139,0.15)',
-                color: inputText.trim() ? '#fff' : '#64748b',
-                fontSize: 13, fontWeight: 600, cursor: inputText.trim() ? 'pointer' : 'not-allowed',
-                alignSelf: 'flex-end',
-              }}
-            >
-              Senden
-            </button>
-          </div>
+
+          {!fallbackMode ? (
+            <div style={{
+              display: 'flex', justifyContent: 'center', flexDirection: 'column',
+              alignItems: 'center', gap: 8, marginBottom: 12,
+            }}>
+              <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
+                {roleLabel(activeRole)} aufnehmen
+              </p>
+              <RecordButton state={btnState} onStart={startRecording} onStop={stopRecording} />
+            </div>
+          ) : (
+            <div style={{ marginBottom: 12 }}>
+              <textarea
+                ref={fallbackTextareaRef}
+                onChange={e => setFallbackText(e.target.value)}
+                placeholder={`${roleLabel(activeRole)} schreibt hier...`}
+                rows={2}
+                style={{
+                  width: '100%', padding: 10, borderRadius: 8, resize: 'none',
+                  border: `1px solid ${activeColor}33`,
+                  background: 'rgba(0,0,0,0.2)', color: '#f1f5f9',
+                  fontSize: 13, lineHeight: 1.6, boxSizing: 'border-box',
+                }}
+              />
+              <button
+                onClick={handleFallbackSend}
+                disabled={!fallbackText.trim()}
+                style={{
+                  marginTop: 8, padding: '10px 16px', borderRadius: 8, border: 'none',
+                  background: fallbackText.trim() ? activeColor : 'rgba(100,116,139,0.15)',
+                  color: fallbackText.trim() ? '#fff' : '#64748b',
+                  fontSize: 13, fontWeight: 600,
+                  cursor: fallbackText.trim() ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Senden
+              </button>
+            </div>
+          )}
         </div>
       )}
 

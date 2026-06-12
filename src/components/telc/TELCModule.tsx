@@ -39,13 +39,14 @@ export default function TELCModule() {
   const [aiPartnerResponse, setAiPartnerResponse] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<ReturnType<typeof buildEvaluation> | null>(null);
   const [historyView, setHistoryView] = useState(false);
-  const [discussionMode, setDiscussionMode] = useState<'ai' | 'partner' | null>(null);
+  const [partnerMode, setPartnerMode] = useState<'ai' | 'human' | null>(null);
 
   const resetExam = useCallback(() => {
     setPhase(PHASES.IDLE);
     setCurrentTopic(null);
     setCurrentZitat(null);
     setTranscripts({ teil_1a: '', teil_1b_answers: '', teil_1b_questions: '', teil_2_turns: [] });
+    setPartnerMode(null);
     setAiPartnerResponse(null);
     setEvaluation(null);
     setHistoryView(false);
@@ -67,8 +68,15 @@ export default function TELCModule() {
   const handleTeil1ATranscript = useCallback((text: string) => {
     setTranscripts(prev => ({ ...prev, teil_1a: text }));
     session.saveSession({ transcripts: { ...transcripts, teil_1a: text } } as never);
-    setPhase(PHASES.TEIL_1B_AI_SUMMARIZES);
-  }, [transcripts, session]);
+    stt.reset();
+    setPhase(PHASES.PARTNER_MODE_SELECT);
+  }, [transcripts, session, stt]);
+
+  const handleSelectPartnerMode = useCallback((mode: 'ai' | 'human') => {
+    stt.reset();
+    setPartnerMode(mode);
+    setPhase(mode === 'ai' ? PHASES.TEIL_1B_AI_SUMMARIZES : PHASES.PARTNER_1B_SUMMARIZES);
+  }, [stt]);
 
   // TEIL_1B_AI_SUMMARIZES — Leila summarizes + asks questions
   useEffect(() => {
@@ -83,8 +91,9 @@ export default function TELCModule() {
     setTranscripts(prev => ({ ...prev, teil_1b_answers: text }));
     session.saveSession({ transcripts: { ...transcripts, teil_1b_answers: text } } as never);
     setAiPartnerResponse(null);
-    setPhase(PHASES.TEIL_1A_AI_PRESENTS);
-  }, [transcripts, session]);
+    stt.reset();
+    setPhase(partnerMode === 'human' ? PHASES.PARTNER_1A_PRESENTS : PHASES.TEIL_1A_AI_PRESENTS);
+  }, [transcripts, session, partnerMode, stt]);
 
   // TEIL_1A_AI_PRESENTS — Leila presents on the topic from different angle
   useEffect(() => {
@@ -99,8 +108,24 @@ export default function TELCModule() {
     setTranscripts(prev => ({ ...prev, teil_1b_questions: text }));
     session.saveSession({ transcripts: { ...transcripts, teil_1b_questions: text } } as never);
     setAiPartnerResponse(null);
-    setPhase(PHASES.TEIL_1B_AI_ANSWERS);
-  }, [transcripts, session]);
+    stt.reset();
+    setPhase(partnerMode === 'human' ? PHASES.PARTNER_1B_ANSWERS : PHASES.TEIL_1B_AI_ANSWERS);
+  }, [transcripts, session, partnerMode, stt]);
+
+  const handlePartner1BSummarizes = useCallback((_text: string) => {
+    stt.reset();
+    setPhase(PHASES.TEIL_1B_CANDIDATE_ANSWERS);
+  }, [stt]);
+
+  const handlePartner1APresents = useCallback((_text: string) => {
+    stt.reset();
+    setPhase(PHASES.TEIL_1B_CANDIDATE_QUESTIONS);
+  }, [stt]);
+
+  const handlePartner1BAnswers = useCallback((_text: string) => {
+    stt.reset();
+    setPhase(PHASES.TEIL_2_DISKUSSION);
+  }, [stt]);
 
   // TEIL_1B_AI_ANSWERS — Leila briefly answers candidate's questions
   useEffect(() => {
@@ -166,12 +191,6 @@ export default function TELCModule() {
   const handleContinueToDiscussion = useCallback(() => {
     stt.reset();
     setAiPartnerResponse(null);
-    setPhase(PHASES.DISCUSSION_MODE_SELECT);
-  }, [stt]);
-
-  const handleSelectDiscussionMode = useCallback((mode: 'ai' | 'partner') => {
-    stt.reset();
-    setDiscussionMode(mode);
     setPhase(PHASES.TEIL_2_DISKUSSION);
   }, [stt]);
 
@@ -260,6 +279,105 @@ export default function TELCModule() {
             setFallbackTranscript={stt.setFallbackTranscript} onTranscriptReady={handleTeil1ATranscript}
           />
         );
+      case PHASES.PARTNER_MODE_SELECT:
+        return (
+          <div style={{ padding: '0 4px' }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px', textAlign: 'center', color: '#f1f5f9' }}>
+              Wer ist Ihr Partner?
+            </h2>
+            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', textAlign: 'center' }}>
+              Diese Auswahl gilt für Teil 1B und die Diskussion
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <button onClick={() => handleSelectPartnerMode('ai')} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: 16, borderRadius: 12,
+                border: '1px solid rgba(59,130,246,0.2)',
+                background: 'rgba(59,130,246,0.06)', cursor: 'pointer', textAlign: 'left',
+                transition: 'background 0.15s',
+              }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(59,130,246,0.15)', color: '#60a5fa',
+                }}>
+                  <MessageCircle size={22} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>
+                    KI-Partner (Leila)
+                  </div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                    Leila übernimmt Teil 1B und die Diskussion
+                  </div>
+                </div>
+              </button>
+              <button onClick={() => handleSelectPartnerMode('human')} style={{
+                display: 'flex', alignItems: 'center', gap: 14, padding: 16, borderRadius: 12,
+                border: '1px solid rgba(34,197,94,0.2)',
+                background: 'rgba(34,197,94,0.06)', cursor: 'pointer', textAlign: 'left',
+                transition: 'background 0.15s',
+              }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'rgba(34,197,94,0.15)', color: '#4ade80',
+                }}>
+                  <Users size={22} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>
+                    Partner (mit Freund)
+                  </div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
+                    Ihr Freund übernimmt Teil 1B und die Diskussion
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+        );
+      case PHASES.PARTNER_1B_SUMMARIZES:
+        return (
+          <RecordPhase
+            title="Teil 1B — Person B spricht"
+            subtitle="Person B fasst Ihre Präsentation zusammen und stellt eine Frage (1:30)"
+            duration={DURATION.TEIL_1B_AI_SUMMARIZE}
+            recording={stt.recording} processing={stt.processing}
+            transcript={stt.transcript} fallbackMode={stt.fallbackMode}
+            error={stt.error}
+            startRecording={stt.startRecording} stopRecording={stt.stopRecording}
+            setFallbackTranscript={stt.setFallbackTranscript}
+            onTranscriptReady={handlePartner1BSummarizes}
+          />
+        );
+      case PHASES.PARTNER_1A_PRESENTS:
+        return (
+          <RecordPhase
+            title="Teil 1A — Person B spricht"
+            subtitle="Person B hält ihre eigene Präsentation (3 Minuten)"
+            duration={DURATION.TEIL_1A}
+            recording={stt.recording} processing={stt.processing}
+            transcript={stt.transcript} fallbackMode={stt.fallbackMode}
+            error={stt.error}
+            startRecording={stt.startRecording} stopRecording={stt.stopRecording}
+            setFallbackTranscript={stt.setFallbackTranscript}
+            onTranscriptReady={handlePartner1APresents}
+          />
+        );
+      case PHASES.PARTNER_1B_ANSWERS:
+        return (
+          <RecordPhase
+            title="Teil 1B — Person B antwortet"
+            subtitle="Person B beantwortet Ihre Fragen (1 Minute)"
+            duration={DURATION.TEIL_1B_QUESTIONS}
+            recording={stt.recording} processing={stt.processing}
+            transcript={stt.transcript} fallbackMode={stt.fallbackMode}
+            error={stt.error}
+            startRecording={stt.startRecording} stopRecording={stt.stopRecording}
+            setFallbackTranscript={stt.setFallbackTranscript}
+            onTranscriptReady={handlePartner1BAnswers}
+          />
+        );
       case PHASES.TEIL_1B_AI_SUMMARIZES:
         return (
           <ListenPhase
@@ -318,65 +436,8 @@ export default function TELCModule() {
             continueLabel="Weiter zur Diskussion"
           />
         );
-      case PHASES.DISCUSSION_MODE_SELECT:
-        return (
-          <div style={{ padding: '0 4px' }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px', textAlign: 'center', color: '#f1f5f9' }}>
-              Teil 2 — Diskussion
-            </h2>
-            <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 20px', textAlign: 'center' }}>
-              Wählen Sie Ihren Diskussionspartner
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <button onClick={() => handleSelectDiscussionMode('ai')} style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: 16, borderRadius: 12,
-                border: '1px solid rgba(59,130,246,0.2)',
-                background: 'rgba(59,130,246,0.06)', cursor: 'pointer', textAlign: 'left',
-                transition: 'background 0.15s',
-              }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(59,130,246,0.15)', color: '#60a5fa',
-                }}>
-                  <MessageCircle size={22} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>
-                    KI-Partner (Leila)
-                  </div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
-                    Leila diskutiert mit Ihnen — simuliert eine echte Prüfungssituation
-                  </div>
-                </div>
-              </button>
-              <button onClick={() => handleSelectDiscussionMode('partner')} style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: 16, borderRadius: 12,
-                border: '1px solid rgba(34,197,94,0.2)',
-                background: 'rgba(34,197,94,0.06)', cursor: 'pointer', textAlign: 'left',
-                transition: 'background 0.15s',
-              }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: 'rgba(34,197,94,0.15)', color: '#4ade80',
-                }}>
-                  <Users size={22} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>
-                    Partner (mit Freund)
-                  </div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
-                    Diskutieren Sie mit einem Freund — tauschen Sie Rollen und lassen Sie sich bewerten
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-        );
       case PHASES.TEIL_2_DISKUSSION:
-        if (discussionMode === 'partner') {
+        if (partnerMode === 'human') {
           return (
             <PartnerDiscussionPhase
               zitat={currentZitat!}
