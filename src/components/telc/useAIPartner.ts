@@ -1,5 +1,12 @@
 import { useState, useCallback } from 'react';
 
+export const FIXED_DISCUSSION_QUESTIONS = [
+  'Wie verstehen Sie diese Aussage? Erklären Sie kurz Ihre Interpretation.',
+  'Inwieweit stimmen Sie der Aussage zu oder lehnen Sie sie ab? Begründen Sie.',
+  'Welche Argumente oder persönlichen Erfahrungen unterstützen Ihren Standpunkt?',
+  'Wie reagieren Sie auf die Argumente Ihres Gesprächspartners?',
+];
+
 const LEILA_PERSONA = `Du bist Leila, eine C1-Deutschlernerin aus Marokko, die an derselben TELC C1 Hochschule Prüfung teilnimmt wie der Kandidat.
 
 DEINE PERSÖNLICHKEIT:
@@ -172,22 +179,22 @@ export default function useAIPartner() {
   }, [callAI]);
 
   const openDiscussion = useCallback(async (
-    zitatText: string, zitatAuthor: string, leilasAngle: string, discussionQuestions: string[],
+    zitatText: string, zitatAuthor: string, leilasAngle: string, _discussionQuestions: string[],
   ): Promise<string | null> => {
     return callAI(
-      DISCUSSION_OPEN_PROMPT(zitatText, zitatAuthor, leilasAngle, discussionQuestions),
+      DISCUSSION_OPEN_PROMPT(zitatText, zitatAuthor, leilasAngle, FIXED_DISCUSSION_QUESTIONS),
       'Eröffne jetzt die Diskussion.',
     );
   }, [callAI]);
 
   const respondInDiscussion = useCallback(async (
-    zitatText: string, leilasAngle: string, discussionQuestions: string[],
+    zitatText: string, leilasAngle: string, _discussionQuestions: string[],
     conversationHistory: Array<{ role: string; text: string }>, candidateLastTurn: string,
   ): Promise<string | null> => {
-    const usedQuestions = discussionQuestions.filter(q =>
+    const usedQuestions = FIXED_DISCUSSION_QUESTIONS.filter(q =>
       conversationHistory.some(t => t.role === 'ai' && t.text.toLowerCase().includes(q.slice(0, 20).toLowerCase()))
     );
-    const unusedQuestions = discussionQuestions.filter(q => !usedQuestions.includes(q));
+    const unusedQuestions = FIXED_DISCUSSION_QUESTIONS.filter(q => !usedQuestions.includes(q));
     return callAI(
       DISCUSSION_RESPOND_PROMPT(zitatText, leilasAngle, unusedQuestions, conversationHistory, candidateLastTurn),
       'Reagiere jetzt auf den Kandidaten.',

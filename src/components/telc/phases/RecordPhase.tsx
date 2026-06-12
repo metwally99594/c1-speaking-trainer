@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Timer from '../components/Timer';
 import RecordButton, { STATES } from '../components/RecordButton';
 
@@ -23,6 +23,8 @@ export default function RecordPhase({
   startRecording, stopRecording, setFallbackTranscript,
   onTranscriptReady,
 }: RecordPhaseProps) {
+  const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   useEffect(() => {
     if (transcript && !processing && !fallbackMode) {
       onTranscriptReady(transcript);
@@ -84,6 +86,7 @@ export default function RecordPhase({
             Transkription fehlgeschlagen
           </p>
           <textarea
+            ref={fallbackTextareaRef}
             placeholder="Geben Sie hier Ihren Text ein..."
             onChange={e => setFallbackTranscript(e.target.value)}
             style={{
@@ -95,9 +98,8 @@ export default function RecordPhase({
           />
           <button
             onClick={() => {
-              const ta = document.querySelector('.telc-record textarea') as HTMLTextAreaElement | null;
-              const text = ta?.value || '';
-              if (text.trim()) onTranscriptReady(text);
+              const text = fallbackTextareaRef.current?.value?.trim() || '';
+              if (text) onTranscriptReady(text);
             }}
             style={{
               marginTop: 8, padding: '10px 20px', borderRadius: 8,

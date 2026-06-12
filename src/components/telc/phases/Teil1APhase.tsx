@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Timer from '../components/Timer';
 import RecordButton, { STATES } from '../components/RecordButton';
 import { DURATION } from '../types';
@@ -24,6 +24,7 @@ export default function Teil1APhase({
   onTranscriptReady,
 }: Teil1APhaseProps) {
   const [showDebug, setShowDebug] = useState(false);
+  const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (transcript && !processing && !fallbackMode) {
@@ -112,6 +113,7 @@ export default function Teil1APhase({
             Transkription fehlgeschlagen
           </p>
           <textarea
+            ref={fallbackTextareaRef}
             placeholder="Geben Sie hier Ihre Präsentation ein..."
             onChange={e => setFallbackTranscript(e.target.value)}
             style={{
@@ -123,9 +125,8 @@ export default function Teil1APhase({
           />
           <button
             onClick={() => {
-              const textarea = document.querySelector('.telc-teil1a textarea') as HTMLTextAreaElement | null;
-              const text = textarea?.value || '';
-              if (text.trim()) onTranscriptReady(text);
+              const text = fallbackTextareaRef.current?.value?.trim() || '';
+              if (text) onTranscriptReady(text);
             }}
             style={{
               marginTop: 8, padding: '10px 20px', borderRadius: 8,

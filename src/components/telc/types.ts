@@ -34,7 +34,7 @@ export interface Zitat {
   text: string;
   author: string;
   discussion_angle: string;
-  discussion_questions: string[];
+  discussion_questions?: string[];
 }
 
 export interface EvalFeedback {

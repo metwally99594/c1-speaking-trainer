@@ -64,7 +64,7 @@ export default function Teil2Phase({
     let cancelled = false;
     const open = async () => {
       const response = await ai.openDiscussion(
-        zitat.text, zitat.author, zitat.discussion_angle, zitat.discussion_questions,
+        zitat.text, zitat.author, zitat.discussion_angle, [],
       );
       if (!mountedRef.current || cancelled || !response) return;
       addTurn('ai', response);
@@ -86,7 +86,7 @@ export default function Teil2Phase({
     let cancelled = false;
     const respond = async () => {
       const response = await ai.respondInDiscussion(
-        zitat.text, zitat.discussion_angle, zitat.discussion_questions,
+        zitat.text, zitat.discussion_angle, [],
         turnsRef.current.map(t => ({ role: t.role, text: t.text })),
         transcript,
       );
@@ -112,7 +112,7 @@ export default function Teil2Phase({
     let cancelled = false;
     const respond = async () => {
       const response = await ai.respondInDiscussion(
-        zitat.text, zitat.discussion_angle, zitat.discussion_questions,
+        zitat.text, zitat.discussion_angle, [],
         turnsRef.current.map(t => ({ role: t.role, text: t.text })),
         text,
       );
