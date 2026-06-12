@@ -152,24 +152,28 @@ export default function TELCModule() {
   }, [session, resetExam]);
 
   const handleContinueToAnswers = useCallback(() => {
+    stt.reset();
     setAiPartnerResponse(null);
     setPhase(PHASES.TEIL_1B_CANDIDATE_ANSWERS);
-  }, []);
+  }, [stt]);
 
   const handleContinueToQuestions = useCallback(() => {
+    stt.reset();
     setAiPartnerResponse(null);
     setPhase(PHASES.TEIL_1B_CANDIDATE_QUESTIONS);
-  }, []);
+  }, [stt]);
 
   const handleContinueToDiscussion = useCallback(() => {
+    stt.reset();
     setAiPartnerResponse(null);
     setPhase(PHASES.DISCUSSION_MODE_SELECT);
-  }, []);
+  }, [stt]);
 
   const handleSelectDiscussionMode = useCallback((mode: 'ai' | 'partner') => {
+    stt.reset();
     setDiscussionMode(mode);
     setPhase(PHASES.TEIL_2_DISKUSSION);
-  }, []);
+  }, [stt]);
 
   if (view === 'admin') {
     return <TELCAdmin onBack={() => setView('exam')} />;
