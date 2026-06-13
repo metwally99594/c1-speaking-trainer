@@ -104,6 +104,22 @@ export default function Teil1APhase({
         />
       </div>
 
+      {(recording || processing || transcript) && !fallbackMode && (
+        <textarea
+          value={transcript}
+          readOnly
+          placeholder="Ihr gesprochener Text erscheint hier..."
+          rows={5}
+          style={{
+            width: '100%', marginBottom: 16, padding: 10, borderRadius: 8,
+            border: '1px solid rgba(100,116,139,0.2)',
+            background: 'rgba(0,0,0,0.2)', color: '#f1f5f9',
+            fontSize: 13, lineHeight: 1.6, resize: 'vertical',
+            boxSizing: 'border-box',
+          }}
+        />
+      )}
+
       {fallbackMode && !error && (
         <div style={{
           background: 'rgba(245,158,11,0.08)', borderRadius: 10,

@@ -183,6 +183,21 @@ export default function PartnerDiscussionPhase({
                 {roleLabel(activeRole)} aufnehmen
               </p>
               <RecordButton state={btnState} onStart={startRecording} onStop={stopRecording} />
+              {(recording || processing || transcript) && (
+                <textarea
+                  value={transcript}
+                  readOnly
+                  placeholder="Ihr gesprochener Text erscheint hier..."
+                  rows={3}
+                  style={{
+                    width: '100%', marginTop: 4, padding: 10, borderRadius: 8,
+                    border: '1px solid rgba(100,116,139,0.2)',
+                    background: 'rgba(0,0,0,0.2)', color: '#f1f5f9',
+                    fontSize: 13, lineHeight: 1.6, resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              )}
             </div>
           ) : (
             <div style={{ marginBottom: 12 }}>
