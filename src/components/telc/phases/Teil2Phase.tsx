@@ -42,11 +42,9 @@ export default function Teil2Phase({
 
   const addTurn = useCallback((role: 'ai' | 'candidate', text: string) => {
     const turn: DiscussionTurn = { role, text };
-    setTurns(prev => {
-      const next = [...prev, turn];
-      turnsRef.current = next;
-      return next;
-    });
+    const next = [...turnsRef.current, turn];
+    turnsRef.current = next;
+    setTurns(next);
     return turn;
   }, []);
 

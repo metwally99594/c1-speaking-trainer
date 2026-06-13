@@ -57,9 +57,10 @@ export default function TELCModule() {
     setEvaluation(null);
     setLanguageFeedback(null);
     setHistoryView(false);
+    session.clearCurrent();
     stt.reset();
     ai.reset();
-  }, [stt, ai]);
+  }, [stt, ai, session]);
 
   const handleStart = useCallback((topic: PraesentationTopic, zitat: Zitat) => {
     setCurrentTopic(topic);

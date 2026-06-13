@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Timer from '../components/Timer';
 import RecordButton, { STATES } from '../components/RecordButton';
 import { DURATION } from '../types';
@@ -25,12 +25,6 @@ export default function Teil1APhase({
 }: Teil1APhaseProps) {
   const [showDebug, setShowDebug] = useState(false);
   const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (transcript && !processing && !fallbackMode) {
-      onTranscriptReady(transcript);
-    }
-  }, [transcript, processing, fallbackMode, onTranscriptReady]);
 
   const btnState = recording ? STATES.RECORDING : processing ? STATES.PROCESSING : transcript ? STATES.DONE : STATES.IDLE;
 
@@ -104,20 +98,58 @@ export default function Teil1APhase({
         />
       </div>
 
-      {(recording || processing || transcript) && !fallbackMode && (
-        <textarea
-          value={transcript}
-          readOnly
-          placeholder="Ihr gesprochener Text erscheint hier..."
-          rows={5}
-          style={{
-            width: '100%', marginBottom: 16, padding: 10, borderRadius: 8,
-            border: '1px solid rgba(100,116,139,0.2)',
-            background: 'rgba(0,0,0,0.2)', color: '#f1f5f9',
-            fontSize: 13, lineHeight: 1.6, resize: 'vertical',
-            boxSizing: 'border-box',
-          }}
-        />
+      {recording && !fallbackMode && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, marginBottom: 12,
+          background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+          color: '#fca5a5', fontSize: 13, textAlign: 'center', fontWeight: 500,
+        }}>
+          🎤 Aufnahme läuft...
+        </div>
+      )}
+
+      {processing && !fallbackMode && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8, marginBottom: 12,
+          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+          color: '#fcd34d', fontSize: 13, textAlign: 'center', fontWeight: 500,
+        }}>
+          ⏳ Wird erkannt...
+        </div>
+      )}
+
+      {transcript && !fallbackMode && (
+        <>
+          <div style={{
+            padding: 12, borderRadius: 10, marginBottom: 12,
+            border: '1px solid rgba(34,197,94,0.2)',
+            background: 'rgba(34,197,94,0.05)',
+          }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, marginBottom: 6,
+              color: '#4ade80', textTransform: 'uppercase', letterSpacing: 0.5,
+            }}>
+              Ihre Präsentation
+            </div>
+            <div style={{
+              fontSize: 14, lineHeight: 1.6, color: '#f1f5f9',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            }}>
+              {transcript}
+            </div>
+          </div>
+          <button
+            onClick={() => onTranscriptReady(transcript)}
+            style={{
+              width: '100%', padding: '14px 20px', borderRadius: 12, border: 'none',
+              background: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
+              color: '#06081a', fontSize: 15, fontWeight: 600, cursor: 'pointer',
+              marginBottom: 12,
+            }}
+          >
+            Weiter
+          </button>
+        </>
       )}
 
       {fallbackMode && !error && (

@@ -209,35 +209,49 @@ export default function useAIPartner() {
       teil_2_turns?: Array<{ role: string; text: string }>;
     },
   ): Promise<Record<string, unknown> | null> => {
-    const prompt = `Du bist offizieller TELC C1 Hochschule Prüfer. Bewerte die folgende Prüfung nach den offiziellen TELC-Kriterien.
+    const teil2Lines = (transcripts.teil_2_turns && transcripts.teil_2_turns.length > 0)
+      ? transcripts.teil_2_turns.map(t => {
+          const label = t.role === 'candidate' ? 'Kandidat'
+            : t.role === 'ai' ? 'Leila (Partnerin)'
+            : t.role === 'person_a' ? 'Person A (Kandidat)'
+            : t.role === 'person_b' ? 'Person B (Partner)'
+            : t.role;
+          return `[${label}]: ${t.text}`;
+        }).join('\n')
+      : '[Keine Aufzeichnung der Diskussion]';
+
+    const candidateTeil2Turns = (transcripts.teil_2_turns || [])
+      .filter(t => t.role === 'candidate' || t.role === 'person_a')
+      .map(t => t.text).join('\n— ');
+
+    const prompt = `Du bist offizieller TELC C1 Hochschule Prüfer. Bewerte die folgende Prüfung nach den offiziellen TELC-Kriterien — bewerte ALLE drei Teile gleichgewichtig (Teil 1A, Teil 1B und Teil 2).
 
 PRÜFUNGSINHALT:
 - Präsentationsthema: ${topic.title}
 - Zitat für Diskussion: ${zitat.text}
 
-TRANSKRIPTE:
-[Teil 1A — Präsentation des Kandidaten]
+═══════════════════════════════════════════════
+TRANSKRIPTE — bitte ALLE Teile in die Bewertung einbeziehen!
+═══════════════════════════════════════════════
+
+[Teil 1A — Präsentation des Kandidaten (3 Min.)]
 ${transcripts.teil_1a || '[Keine Aufzeichnung]'}
 
-[Teil 1B — Antworten des Kandidaten auf Fragen]
+[Teil 1B — Antworten des Kandidaten auf Fragen (1 Min.)]
 ${transcripts.teil_1b_answers || '[Keine Aufzeichnung]'}
 
-[Teil 1B — Fragen des Kandidaten zur Partnerpräsentation]
+[Teil 1B — Fragen des Kandidaten zur Partnerpräsentation (1 Min.)]
 ${transcripts.teil_1b_questions || '[Keine Aufzeichnung]'}
 
-[Teil 2 — Diskussion (alle Turns — WICHTIG für die Bewertung!)]
-${(transcripts.teil_2_turns && transcripts.teil_2_turns.length > 0)
-  ? transcripts.teil_2_turns.map(t => {
-      const label = t.role === 'candidate' ? 'Kandidat'
-        : t.role === 'ai' ? 'Leila (Partnerin)'
-        : t.role === 'person_a' ? 'Person A (Kandidat)'
-        : t.role === 'person_b' ? 'Person B (Partner)'
-        : t.role;
-      return `[${label}]: ${t.text}`;
-    }).join('\n')
-  : '[Keine Aufzeichnung der Diskussion]'}
+[Teil 2 — DISKUSSION (6 Min.) — vollständiger Gesprächsverlauf]
+${teil2Lines}
 
-WICHTIG: Teil 2 (Diskussion) ist ein zentraler Teil der TELC C1 Prüfung. Bewerte unbedingt die Beiträge des Kandidaten in der Diskussion mit.
+═══════════════════════════════════════════════
+ZUSAMMENFASSUNG der Kandidaten-Beiträge in Teil 2 (zur Sicherheit nochmal isoliert):
+${candidateTeil2Turns ? '— ' + candidateTeil2Turns : '[Keine Beiträge des Kandidaten in der Diskussion]'}
+═══════════════════════════════════════════════
+
+WICHTIG: Teil 2 (Diskussion) zählt gleichwertig zu Teil 1. Beziehe die Beiträge des Kandidaten in der Diskussion AUSDRÜCKLICH in deine Bewertung jedes Kriteriums ein. Erwähne im "overall_comment" konkret, wie der Kandidat in der Diskussion agiert hat.
 
 BEWERTUNGSSKALA:
 A = Hervorragend (C1 in jeder Hinsicht)

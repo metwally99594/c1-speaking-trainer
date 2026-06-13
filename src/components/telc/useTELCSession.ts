@@ -92,8 +92,7 @@ export default function useTELCSession(): TELCSessionHook {
     const updated = [session, ...existing].slice(0, 50);
     safeSet(LOCAL_STORAGE_KEYS.HISTORY, updated);
     setHistory(updated);
-    clearCurrent();
-  }, [clearCurrent]);
+  }, []);
 
   const getHistory = useCallback((): TELCSession[] => {
     const h = safeGet<TELCSession[]>(LOCAL_STORAGE_KEYS.HISTORY) || [];
