@@ -15,6 +15,7 @@ import RecordPhase from './phases/RecordPhase';
 import Teil2Phase from './phases/Teil2Phase';
 import PartnerDiscussionPhase from './phases/PartnerDiscussionPhase';
 import EvaluationPhase from './phases/EvaluationPhase';
+import LanguageFeedbackPhase from './phases/LanguageFeedbackPhase';
 import SelfAssessPhase from './phases/SelfAssessPhase';
 import ResultsPhase from './phases/ResultsPhase';
 import TELCAdmin from './admin/TELCAdmin';
@@ -41,7 +42,9 @@ export default function TELCModule() {
   });
   const [aiPartnerResponse, setAiPartnerResponse] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<ReturnType<typeof buildEvaluation> | null>(null);
+  const [languageFeedback, setLanguageFeedback] = useState<string | null>(null);
   const [historyView, setHistoryView] = useState(false);
+  const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
   const [partnerMode, setPartnerMode] = useState<'ai' | 'human' | null>(null);
 
   const resetExam = useCallback(() => {
@@ -52,6 +55,7 @@ export default function TELCModule() {
     setPartnerMode(null);
     setAiPartnerResponse(null);
     setEvaluation(null);
+    setLanguageFeedback(null);
     setHistoryView(false);
     stt.reset();
     ai.reset();
@@ -158,6 +162,21 @@ export default function TELCModule() {
   }, [phase, currentTopic, currentZitat, transcripts, ai, evaluation, session]);
 
   const handleEvalContinue = useCallback(() => {
+    setPhase(PHASES.LANGUAGE_FEEDBACK);
+  }, []);
+
+  useEffect(() => {
+    if (phase === PHASES.LANGUAGE_FEEDBACK && languageFeedback === null && !ai.loading) {
+      ai.correctLanguage(transcripts).then(text => {
+        if (text !== null) {
+          setLanguageFeedback(text);
+          session.saveSession({ language_feedback: text } as never);
+        }
+      });
+    }
+  }, [phase, languageFeedback, ai, transcripts, session]);
+
+  const handleLanguageFeedbackContinue = useCallback(() => {
     setPhase(PHASES.SELF_ASSESSMENT);
   }, []);
 
@@ -238,16 +257,46 @@ export default function TELCModule() {
                     </span>
                   </div>
                 )}
-                <button
-                  onClick={() => session.deleteFromHistory(s.id)}
-                  style={{
-                    marginTop: 8, padding: '6px 12px', borderRadius: 6,
-                    border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444',
-                    fontSize: 12, cursor: 'pointer',
-                  }}
-                >
-                  Löschen
-                </button>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  {s.language_feedback && (
+                    <button
+                      onClick={() => setExpandedFeedbackIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+                        return next;
+                      })}
+                      style={{
+                        padding: '6px 12px', borderRadius: 6,
+                        border: '1px solid rgba(59,130,246,0.3)',
+                        background: 'rgba(59,130,246,0.08)', color: '#60a5fa',
+                        fontSize: 12, cursor: 'pointer',
+                      }}
+                    >
+                      {expandedFeedbackIds.has(s.id) ? 'Korrekturen ausblenden' : 'Korrekturen anzeigen'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => session.deleteFromHistory(s.id)}
+                    style={{
+                      padding: '6px 12px', borderRadius: 6,
+                      border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                      fontSize: 12, cursor: 'pointer',
+                    }}
+                  >
+                    Löschen
+                  </button>
+                </div>
+                {s.language_feedback && expandedFeedbackIds.has(s.id) && (
+                  <pre style={{
+                    marginTop: 8, padding: 10, borderRadius: 8,
+                    background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(100,116,139,0.2)',
+                    color: '#cbd5e1', fontSize: 12, lineHeight: 1.6,
+                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    fontFamily: 'inherit', margin: '8px 0 0',
+                  }}>
+                    {s.language_feedback}
+                  </pre>
+                )}
               </div>
             ))}
           </div>
@@ -459,6 +508,15 @@ export default function TELCModule() {
         );
       case PHASES.EVALUATION:
         return <EvaluationPhase evaluation={evaluation} onContinue={handleEvalContinue} />;
+      case PHASES.LANGUAGE_FEEDBACK:
+        return (
+          <LanguageFeedbackPhase
+            corrections={languageFeedback}
+            loading={ai.loading}
+            error={ai.error}
+            onContinue={handleLanguageFeedbackContinue}
+          />
+        );
       case PHASES.SELF_ASSESSMENT:
         return <SelfAssessPhase onComplete={handleSelfAssess} />;
       case PHASES.RESULTS:

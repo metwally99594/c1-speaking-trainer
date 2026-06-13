@@ -276,6 +276,49 @@ Antworte NUR mit JSON, kein Markdown:
     );
   }, [callAI]);
 
+  const correctLanguage = useCallback(async (
+    transcripts: {
+      teil_1a?: string;
+      teil_1b_answers?: string;
+      teil_1b_questions?: string;
+      teil_2_turns?: Array<{ role: string; text: string }>;
+    }
+  ): Promise<string | null> => {
+    const allText = [
+      transcripts.teil_1a,
+      transcripts.teil_1b_answers,
+      transcripts.teil_1b_questions,
+      ...(transcripts.teil_2_turns || [])
+        .filter(t => t.role === 'candidate')
+        .map(t => t.text),
+    ].filter(Boolean).join('\n\n');
+
+    const prompt = `Du bist ein C1-Deutschlehrer.
+Analysiere die folgenden Aussagen des Kandidaten und korrigiere sie.
+
+Für JEDEN Fehler:
+1. Zeige den falschen Satz/die falsche Phrase
+2. Zeige die korrekte Version
+3. Erkläre kurz warum (1 Satz auf Deutsch)
+
+Format für jeden Fehler:
+❌ [Falscher Satz]
+✅ [Korrekter Satz]
+💡 [Kurze Erklärung]
+
+Wenn ein Satz korrekt ist, erwähne ihn NICHT.
+Fokus auf: Grammatik, Wortstellung, Konnektoren, Wortschatz, Präpositionen.
+
+Text des Kandidaten:
+"""
+${allText}
+"""
+
+Antworte NUR mit den Korrekturen, kein Intro, kein Outro.`;
+
+    return callAI(prompt, 'Korrigiere die Fehler.');
+  }, [callAI]);
+
   const reset = useCallback(() => {
     setLoading(false);
     setError(null);
@@ -285,6 +328,6 @@ Antworte NUR mit JSON, kein Markdown:
     loading, error,
     summarizeAndAsk, presentOnTopic, answerCandidateQuestions,
     openDiscussion, respondInDiscussion,
-    evaluateExam, callPartner, callAI, reset,
+    evaluateExam, correctLanguage, callPartner, callAI, reset,
   };
 }

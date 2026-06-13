@@ -8,7 +8,7 @@ const POINTS: Record<Grade, number> = {
 };
 
 export const TOTAL_MAX = 40;
-export const PASS_THRESHOLD = 24;
+export const PASS_THRESHOLD = 29;
 
 export function gradeToPoints(grade: Grade, _criterion?: string): number {
   return POINTS[grade] ?? 0;

@@ -83,6 +83,7 @@ export interface TELCSession {
   transcripts: ExamTranscripts;
   ai_evaluation: AIEvaluation | null;
   user_assessment?: UserAssessment;
+  language_feedback?: string;
 }
 
 export type Phase =
@@ -100,6 +101,7 @@ export type Phase =
   | 'PARTNER_1B_ANSWERS'
   | 'TEIL_2_DISKUSSION'
   | 'EVALUATION'
+  | 'LANGUAGE_FEEDBACK'
   | 'SELF_ASSESSMENT'
   | 'RESULTS';
 
@@ -118,6 +120,7 @@ export const PHASES: Record<Phase, Phase> = {
   PARTNER_1B_ANSWERS: 'PARTNER_1B_ANSWERS',
   TEIL_2_DISKUSSION: 'TEIL_2_DISKUSSION',
   EVALUATION: 'EVALUATION',
+  LANGUAGE_FEEDBACK: 'LANGUAGE_FEEDBACK',
   SELF_ASSESSMENT: 'SELF_ASSESSMENT',
   RESULTS: 'RESULTS',
 };
