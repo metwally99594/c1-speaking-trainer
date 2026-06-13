@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { ArrowLeft, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2, Check, X, RotateCcw } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { Zitat } from '../types';
+import { LOCAL_STORAGE_KEYS } from '../types';
+import { seedIfEmpty } from '../lib/seedStorage';
 
 const PAIRS_KEY = 'telc_topic_pairs';
 const ZITATE_KEY = 'telc_zitate';
@@ -381,6 +383,31 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* ============ RESET ============ */}
+      <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid rgba(100,116,139,0.15)' }}>
+        <button
+          onClick={() => {
+            const ok = window.confirm(
+              'Wirklich alle Inhalte zurücksetzen?\n\nAlle Themenvarianten und Zitate werden auf die Standardwerte zurückgesetzt. Eigene Änderungen gehen verloren.'
+            );
+            if (!ok) return;
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.TOPIC_PAIRS);
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.ZITATE);
+            seedIfEmpty();
+            window.location.reload();
+          }}
+          style={{
+            width: '100%', padding: '12px 20px', borderRadius: 10,
+            border: '1px solid rgba(239,68,68,0.3)',
+            background: 'rgba(239,68,68,0.08)', color: '#ef4444',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          }}
+        >
+          <RotateCcw size={16} /> Alle Inhalte zurücksetzen auf Standard
+        </button>
       </div>
     </div>
   );

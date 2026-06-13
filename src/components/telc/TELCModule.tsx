@@ -19,8 +19,11 @@ import SelfAssessPhase from './phases/SelfAssessPhase';
 import ResultsPhase from './phases/ResultsPhase';
 import TELCAdmin from './admin/TELCAdmin';
 import { DURATION } from './types';
+import { seedIfEmpty } from './lib/seedStorage';
 
 export default function TELCModule() {
+  useEffect(() => { seedIfEmpty(); }, []);
+
   const [view, setView] = useState<'exam' | 'admin'>('exam');
   const [phase, setPhase] = useState(PHASES.IDLE);
 
