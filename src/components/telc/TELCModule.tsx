@@ -21,9 +21,9 @@ import TELCAdmin from './admin/TELCAdmin';
 import { DURATION } from './types';
 import { seedIfEmpty } from './lib/seedStorage';
 
-export default function TELCModule() {
-  useEffect(() => { seedIfEmpty(); }, []);
+if (typeof window !== 'undefined') seedIfEmpty();
 
+export default function TELCModule() {
   const [view, setView] = useState<'exam' | 'admin'>('exam');
   const [phase, setPhase] = useState(PHASES.IDLE);
 
