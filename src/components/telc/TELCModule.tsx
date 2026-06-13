@@ -194,8 +194,8 @@ export default function TELCModule() {
 
   const handleViewHistory = useCallback(() => {
     session.getHistory();
-    setHistoryView(true);
     resetExam();
+    setHistoryView(true);
   }, [session, resetExam]);
 
   const handleContinueToAnswers = useCallback(() => {

@@ -225,8 +225,19 @@ ${transcripts.teil_1b_answers || '[Keine Aufzeichnung]'}
 [Teil 1B — Fragen des Kandidaten zur Partnerpräsentation]
 ${transcripts.teil_1b_questions || '[Keine Aufzeichnung]'}
 
-[Teil 2 — Diskussion (alle Turns)]
-${(transcripts.teil_2_turns || []).map(t => `[${t.role === 'candidate' ? 'Kandidat' : 'Leila'}]: ${t.text}`).join('\n') || '[Keine Aufzeichnung]'}
+[Teil 2 — Diskussion (alle Turns — WICHTIG für die Bewertung!)]
+${(transcripts.teil_2_turns && transcripts.teil_2_turns.length > 0)
+  ? transcripts.teil_2_turns.map(t => {
+      const label = t.role === 'candidate' ? 'Kandidat'
+        : t.role === 'ai' ? 'Leila (Partnerin)'
+        : t.role === 'person_a' ? 'Person A (Kandidat)'
+        : t.role === 'person_b' ? 'Person B (Partner)'
+        : t.role;
+      return `[${label}]: ${t.text}`;
+    }).join('\n')
+  : '[Keine Aufzeichnung der Diskussion]'}
+
+WICHTIG: Teil 2 (Diskussion) ist ein zentraler Teil der TELC C1 Prüfung. Bewerte unbedingt die Beiträge des Kandidaten in der Diskussion mit.
 
 BEWERTUNGSSKALA:
 A = Hervorragend (C1 in jeder Hinsicht)
@@ -293,28 +304,44 @@ Antworte NUR mit JSON, kein Markdown:
         .map(t => t.text),
     ].filter(Boolean).join('\n\n');
 
-    const prompt = `Du bist ein C1-Deutschlehrer.
-Analysiere die folgenden Aussagen des Kandidaten und korrigiere sie.
+    const prompt = `Du bist ein erfahrener C1-Deutschlehrer mit Spezialisierung auf detaillierte sprachliche Korrektur.
 
-Für JEDEN Fehler:
-1. Zeige den falschen Satz/die falsche Phrase
-2. Zeige die korrekte Version
-3. Erkläre kurz warum (1 Satz auf Deutsch)
+DEINE AUFGABE:
+Analysiere JEDEN Satz des Kandidaten und gib eine ausführliche Korrektur.
+Sei gründlich — übersehe keinen Fehler, auch keinen kleinen.
 
-Format für jeden Fehler:
-❌ [Falscher Satz]
-✅ [Korrekter Satz]
-💡 [Kurze Erklärung]
+ANWEISUNGEN:
+1. Korrigiere JEDE Aussage des Kandidaten, die einen Fehler enthält — egal wie klein (Grammatik, Wortstellung, Artikel, Endungen, Präpositionen, Konnektoren, Konjunktiv, Passiv, Verbvalenz, Adjektivdeklination, Idiomatik).
+2. Bei jedem Fehler: erkläre AUSFÜHRLICH (2–3 Sätze auf Deutsch), was falsch war und WARUM — nicht nur die Regel nennen, sondern verstehen lassen.
+3. Gib für jede Korrektur ein ZUSÄTZLICHES Beispiel, das dieselbe grammatische Struktur korrekt verwendet.
+4. Wenn ein Satz vollständig korrekt ist, schreibe als eigene Zeile: "✅ Ausgezeichnet — [Satz]"
 
-Wenn ein Satz korrekt ist, erwähne ihn NICHT.
-Fokus auf: Grammatik, Wortstellung, Konnektoren, Wortschatz, Präpositionen.
+FOKUSBEREICHE:
+- Grammatik (Verbformen, Tempora, Modi)
+- Wortstellung (Hauptsatz, Nebensatz, Inversion)
+- Konnektoren (weil, da, obwohl, trotzdem, deshalb, sodass etc.)
+- Präpositionen (mit Kasus)
+- Artikel (bestimmter/unbestimmter, Deklination)
+- Konjunktiv I (indirekte Rede) und Konjunktiv II (Höflichkeit, Irrealis)
+- Passiv (Vorgangs- und Zustandspassiv)
+- Adjektivdeklination
+- Verbvalenz und Rektion
+
+FORMAT bei Fehlern:
+❌ [Wörtlich falscher Satz/Phrase des Kandidaten]
+✅ [Korrekte Version]
+💡 [Ausführliche Erklärung: Was war der Fehler? Warum ist die Korrektur richtig? Welche Regel/Struktur liegt zugrunde?]
+📝 Beispiel: [Ein zusätzlicher Beispielsatz, der dieselbe Struktur korrekt verwendet]
+
+FORMAT bei korrekten Sätzen:
+✅ Ausgezeichnet — [Der korrekte Satz wörtlich]
 
 Text des Kandidaten:
 """
 ${allText}
 """
 
-Antworte NUR mit den Korrekturen, kein Intro, kein Outro.`;
+Antworte NUR mit den Korrekturen im obigen Format. Kein Intro, kein Outro, keine Zusammenfassung am Ende.`;
 
     return callAI(prompt, 'Korrigiere die Fehler.');
   }, [callAI]);
