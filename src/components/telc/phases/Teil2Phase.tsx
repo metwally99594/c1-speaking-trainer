@@ -26,7 +26,7 @@ export default function Teil2Phase({
   const ai = useAIPartner();
   const [turns, setTurns] = useState<DiscussionTurn[]>([]);
   const [discussionDone, setDiscussionDone] = useState(false);
-  const [waitingForCandidate, setWaitingForCandidate] = useState(false);
+  const [waitingForCandidate, setWaitingForCandidate] = useState(true);
   const [fallbackText, setFallbackText] = useState('');
   const turnsRef = useRef<DiscussionTurn[]>([]);
   const mountedRef = useRef(true);
@@ -59,22 +59,7 @@ export default function Teil2Phase({
     onTurnsReady(turnsRef.current);
   }, [recording, stopRecording, onTurnsReady]);
 
-  // STEP 1: Leila opens the discussion
-  useEffect(() => {
-    let cancelled = false;
-    const open = async () => {
-      const response = await ai.openDiscussion(
-        zitat.text, zitat.author, zitat.discussion_angle, [],
-      );
-      if (!mountedRef.current || cancelled || !response) return;
-      addTurn('ai', response);
-      setWaitingForCandidate(true);
-    };
-    open();
-    return () => { cancelled = true; };
-  }, []);
-
-  // STEP 2: When candidate speaks, Leila responds
+  // STEP 1: Candidate speaks first; when transcript arrives, Leila responds
   useEffect(() => {
     if (!transcript || processing || fallbackMode || discussionDone) return;
     if (transcript === processedTranscriptRef.current) return;
