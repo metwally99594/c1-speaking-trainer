@@ -60,7 +60,7 @@ export default async function handler(req) {
 
     const body = {
       model: 'anthropic/claude-sonnet-4.6',
-      max_tokens: 1024,
+      max_tokens: 2000,
       messages: messages.map(m => ({
         role: m.role === 'system' ? 'system' : m.role === 'assistant' ? 'assistant' : 'user',
         content: m.content,

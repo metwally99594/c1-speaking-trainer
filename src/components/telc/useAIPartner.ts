@@ -278,7 +278,12 @@ KRITERIEN (offizielle TELC C1 Hauptkriterien):
 4. Grammatische Richtigkeit — Grammatikgenauigkeit
 5. Aussprache — Aussprache und Intonation (aus Text: Standard B vergeben, außer offensichtliche Fehler)
 
-Antworte NUR mit JSON, kein Markdown:
+WICHTIG: Antworte NUR mit validem JSON.
+- Keine Anführungszeichen (") innerhalb von Strings — verwende Apostrophe (') oder lasse sie weg.
+- Keine Zeilenumbrüche innerhalb von Strings — schreibe alles in einer Zeile.
+- Maximal 100 Zeichen pro Textfeld.
+
+JSON-Struktur (kein Markdown, keine Erklärung davor oder danach):
 {
   "aufgabengerechtheit": "A|B|C|D",
   "fluessigkeit": "A|B|C|D",
@@ -320,14 +325,44 @@ WICHTIG:
 - Für teil_2: ALLE 6 Textfelder (inhalt, argumentation, reaktion, sprache, interaktion, gesamtkommentar) AUSFÜLLEN — keine leeren Strings.`;
     const result = await callAI(prompt, 'Bewerte die Prüfungstranskripte nach TELC C1 Bewertungsskala.');
     if (!result) return null;
-    try {
-      const cleaned = result.replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();
-      return JSON.parse(cleaned);
-    } catch (e) {
-      console.error('[TELC AI] Parse error:', e);
-      setError('Auswertung konnte nicht gelesen werden');
-      return null;
+
+    const stripped = result.replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();
+
+    const tryParse = (s: string): Record<string, unknown> | null => {
+      try { return JSON.parse(s); } catch { return null; }
+    };
+
+    let parsed = tryParse(stripped);
+
+    if (!parsed) {
+      const cleaned = stripped
+        .replace(/[\x00-\x1F]/g, ' ')
+        .replace(/\n/g, ' ')
+        .trim();
+      parsed = tryParse(cleaned);
+      if (parsed) {
+        console.warn('[TELC AI] JSON parsed after cleanup');
+      }
     }
+    if (!parsed) {
+      console.error('[TELC AI] JSON parse failed even after cleanup');
+      setError('Auswertung konnte nicht vollständig gelesen werden — Standardbewertung angezeigt.');
+      return {
+        aufgabengerechtheit: 'B',
+        fluessigkeit: 'B',
+        repertoire: 'B',
+        grammatische_richtigkeit: 'B',
+        aussprache: 'B',
+        feedback: {
+          strengths: [],
+          improvements: [],
+          overall_comment: 'Die KI-Antwort war kein valides JSON. Eine Notfallbewertung wurde angezeigt.',
+        },
+        note: 'Hinweis: Automatische Auswertung fehlgeschlagen — bitte Prüfung wiederholen für eine vollständige Bewertung.',
+      };
+    }
+
+    return parsed;
   }, [callAI]);
 
   const callPartner = useCallback(async (
