@@ -57,6 +57,18 @@ export interface ExamTranscripts {
   teil_2_turns: DiscussionTurn[];
 }
 
+export interface PartEvaluation {
+  grade: Grade;
+  content_notes: string[];
+  language_notes: string[];
+}
+
+export interface DetailedEvaluation {
+  teil_1a: PartEvaluation;
+  teil_1b: PartEvaluation;
+  teil_2: PartEvaluation;
+}
+
 export interface AIEvaluation {
   aufgabengerechtheit: Grade;
   fluessigkeit: Grade;
@@ -67,6 +79,33 @@ export interface AIEvaluation {
   note: string;
   total_points: number;
   passed: boolean;
+  per_part?: DetailedEvaluation;
+}
+
+export interface GrammatikError {
+  falsch: string;
+  richtig: string;
+  regel: string;
+  erklaerung: string;
+  beispiel: string;
+}
+
+export interface WortschatzError {
+  falsch: string;
+  richtig: string;
+  unterschied: string;
+}
+
+export interface SatzstrukturError {
+  falsch: string;
+  richtig: string;
+  regel: string;
+}
+
+export interface LanguageErrors {
+  grammatik: GrammatikError[];
+  wortschatz: WortschatzError[];
+  satzstruktur: SatzstrukturError[];
 }
 
 export interface UserAssessment {
@@ -84,6 +123,7 @@ export interface TELCSession {
   ai_evaluation: AIEvaluation | null;
   user_assessment?: UserAssessment;
   language_feedback?: string;
+  language_errors?: LanguageErrors;
 }
 
 export type Phase =

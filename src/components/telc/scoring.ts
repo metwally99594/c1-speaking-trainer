@@ -1,4 +1,4 @@
-import type { Grade, AIEvaluation, GradeCriterion } from './types';
+import type { Grade, AIEvaluation, GradeCriterion, DetailedEvaluation } from './types';
 
 const POINTS: Record<Grade, number> = {
   A: 8,
@@ -34,6 +34,12 @@ export function maxPointsFor(): number {
   return 8;
 }
 
+interface RawPart {
+  grade?: Grade;
+  content_notes?: string[];
+  language_notes?: string[];
+}
+
 interface RawEval {
   aufgabengerechtheit?: Grade;
   fluessigkeit?: Grade;
@@ -42,6 +48,19 @@ interface RawEval {
   aussprache?: Grade;
   feedback?: { strengths?: string[]; improvements?: string[]; overall_comment?: string };
   note?: string;
+  per_part?: {
+    teil_1a?: RawPart;
+    teil_1b?: RawPart;
+    teil_2?: RawPart;
+  };
+}
+
+function buildPart(raw: RawPart | undefined): { grade: Grade; content_notes: string[]; language_notes: string[] } {
+  return {
+    grade: raw?.grade || 'B',
+    content_notes: Array.isArray(raw?.content_notes) ? raw.content_notes : [],
+    language_notes: Array.isArray(raw?.language_notes) ? raw.language_notes : [],
+  };
 }
 
 export function buildEvaluation(raw: RawEval): AIEvaluation {
@@ -62,5 +81,13 @@ export function buildEvaluation(raw: RawEval): AIEvaluation {
   };
   evaluation.total_points = calculateTotal(evaluation);
   evaluation.passed = hasPassed(evaluation.total_points);
+  if (raw.per_part) {
+    const detailed: DetailedEvaluation = {
+      teil_1a: buildPart(raw.per_part.teil_1a),
+      teil_1b: buildPart(raw.per_part.teil_1b),
+      teil_2: buildPart(raw.per_part.teil_2),
+    };
+    evaluation.per_part = detailed;
+  }
   return evaluation;
 }

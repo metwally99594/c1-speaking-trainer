@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { LanguageErrors } from './types';
 
 export const FIXED_DISCUSSION_QUESTIONS = [
   'Wie verstehen Sie diese Aussage? Erklären Sie kurz Ihre Interpretation.',
@@ -276,10 +277,29 @@ Antworte NUR mit JSON, kein Markdown:
   "feedback": {
     "strengths": ["...", "..."],
     "improvements": ["...", "..."],
-    "overall_comment": "2–3 Sätze auf Deutsch"
+    "overall_comment": "2–3 Sätze auf Deutsch — erwähne konkret die Diskussion (Teil 2)"
   },
-  "note": "Hinweis zur transkriptbasierten Bewertung"
-}`;
+  "note": "Hinweis zur transkriptbasierten Bewertung",
+  "per_part": {
+    "teil_1a": {
+      "grade": "A|B|C|D",
+      "content_notes": ["Detaillierte Beobachtung 1 zum Inhalt der Präsentation", "Beobachtung 2", "..."],
+      "language_notes": ["Sprachliche Beobachtung 1 (Wortschatz, Stil, Kohärenz)", "Beobachtung 2", "..."]
+    },
+    "teil_1b": {
+      "grade": "A|B|C|D",
+      "content_notes": ["Inhaltliche Beobachtung zu Antworten und Fragen", "..."],
+      "language_notes": ["Sprachliche Beobachtung zu Antworten und Fragen", "..."]
+    },
+    "teil_2": {
+      "grade": "A|B|C|D",
+      "content_notes": ["Beobachtung zur Argumentation in Turn 1", "Turn 2: ...", "Reaktion auf Partnerargumente", "..."],
+      "language_notes": ["Sprachliche Stärken/Schwächen in der Diskussion", "..."]
+    }
+  }
+}
+
+WICHTIG: Das "per_part" Feld ist Pflicht. Gib in jedem Teil mindestens 2 content_notes und 2 language_notes.`;
     const result = await callAI(prompt, 'Bewerte die Prüfungstranskripte nach TELC C1 Bewertungsskala.');
     if (!result) return null;
     try {
@@ -308,56 +328,79 @@ Antworte NUR mit JSON, kein Markdown:
       teil_1b_questions?: string;
       teil_2_turns?: Array<{ role: string; text: string }>;
     }
-  ): Promise<string | null> => {
+  ): Promise<LanguageErrors | null> => {
     const allText = [
       transcripts.teil_1a,
       transcripts.teil_1b_answers,
       transcripts.teil_1b_questions,
       ...(transcripts.teil_2_turns || [])
-        .filter(t => t.role === 'candidate')
+        .filter(t => t.role === 'candidate' || t.role === 'person_a')
         .map(t => t.text),
     ].filter(Boolean).join('\n\n');
 
-    const prompt = `Du bist ein erfahrener C1-Deutschlehrer mit Spezialisierung auf detaillierte sprachliche Korrektur.
+    const prompt = `Du bist ein erfahrener C1-Deutschlehrer mit Spezialisierung auf detaillierte sprachliche Fehleranalyse.
 
 DEINE AUFGABE:
-Analysiere JEDEN Satz des Kandidaten und gib eine ausführliche Korrektur.
-Sei gründlich — übersehe keinen Fehler, auch keinen kleinen.
+Analysiere den Text des Kandidaten und kategorisiere ALLE Fehler in drei Kategorien:
+1. Grammatikfehler (Tempora, Modi, Konjunktiv, Passiv, Artikel-Deklination, Endungen, Verbvalenz)
+2. Wortschatzfehler (falsche Wortwahl, ähnliche aber falsche Wörter, idiomatische Fehler)
+3. Satzstrukturfehler (Wortstellung, Nebensätze, Konnektoren, Hauptsatz-Aufbau)
 
-ANWEISUNGEN:
-1. Korrigiere JEDE Aussage des Kandidaten, die einen Fehler enthält — egal wie klein (Grammatik, Wortstellung, Artikel, Endungen, Präpositionen, Konnektoren, Konjunktiv, Passiv, Verbvalenz, Adjektivdeklination, Idiomatik).
-2. Bei jedem Fehler: erkläre AUSFÜHRLICH (2–3 Sätze auf Deutsch), was falsch war und WARUM — nicht nur die Regel nennen, sondern verstehen lassen.
-3. Gib für jede Korrektur ein ZUSÄTZLICHES Beispiel, das dieselbe grammatische Struktur korrekt verwendet.
-4. Wenn ein Satz vollständig korrekt ist, schreibe als eigene Zeile: "✅ Ausgezeichnet — [Satz]"
+Sei GRÜNDLICH — übersehe keinen Fehler, auch keinen kleinen.
 
-FOKUSBEREICHE:
-- Grammatik (Verbformen, Tempora, Modi)
-- Wortstellung (Hauptsatz, Nebensatz, Inversion)
-- Konnektoren (weil, da, obwohl, trotzdem, deshalb, sodass etc.)
-- Präpositionen (mit Kasus)
-- Artikel (bestimmter/unbestimmter, Deklination)
-- Konjunktiv I (indirekte Rede) und Konjunktiv II (Höflichkeit, Irrealis)
-- Passiv (Vorgangs- und Zustandspassiv)
-- Adjektivdeklination
-- Verbvalenz und Rektion
+ANTWORTE NUR MIT JSON (kein Markdown, keine Erklärung davor/danach):
+{
+  "grammatik": [
+    {
+      "falsch": "Wörtlich falscher Satz oder Phrase",
+      "richtig": "Korrigierte Version",
+      "regel": "Name der grammatischen Regel (z.B. 'Konjunktiv II', 'Akkusativ nach Präposition durch')",
+      "erklaerung": "Ausführliche Erklärung in 2-3 Sätzen: Was war falsch, welche Regel gilt, warum die Korrektur richtig ist",
+      "beispiel": "Ein zusätzlicher Beispielsatz, der dieselbe Regel korrekt anwendet"
+    }
+  ],
+  "wortschatz": [
+    {
+      "falsch": "Wörtlich falsches Wort/Phrase im Kontext",
+      "richtig": "Bessere Alternative",
+      "unterschied": "Erkläre den Unterschied zwischen den beiden Wörtern und warum die Alternative im Kontext passender ist"
+    }
+  ],
+  "satzstruktur": [
+    {
+      "falsch": "Falsch strukturierter Satz",
+      "richtig": "Korrekt strukturierter Satz",
+      "regel": "Name der Strukturregel + kurze Erklärung (z.B. 'Verb-Endstellung im Nebensatz nach \\"dass\\"')"
+    }
+  ]
+}
 
-FORMAT bei Fehlern:
-❌ [Wörtlich falscher Satz/Phrase des Kandidaten]
-✅ [Korrekte Version]
-💡 [Ausführliche Erklärung: Was war der Fehler? Warum ist die Korrektur richtig? Welche Regel/Struktur liegt zugrunde?]
-📝 Beispiel: [Ein zusätzlicher Beispielsatz, der dieselbe Struktur korrekt verwendet]
-
-FORMAT bei korrekten Sätzen:
-✅ Ausgezeichnet — [Der korrekte Satz wörtlich]
+WICHTIG:
+- Jede Kategorie muss ein Array sein (auch wenn leer: []).
+- Wenn keine Fehler in einer Kategorie: leeres Array [].
+- Identifiziere die spezifischste Kategorie pro Fehler — keine Doppel-Einträge.
+- Fokus auf C1-Niveau-Fehler.
 
 Text des Kandidaten:
 """
 ${allText}
-"""
+"""`;
 
-Antworte NUR mit den Korrekturen im obigen Format. Kein Intro, kein Outro, keine Zusammenfassung am Ende.`;
-
-    return callAI(prompt, 'Korrigiere die Fehler.');
+    const result = await callAI(prompt, 'Analysiere die Fehler und gib JSON zurück.');
+    if (!result) return null;
+    try {
+      const cleaned = result.replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();
+      const parsed = JSON.parse(cleaned) as Partial<LanguageErrors>;
+      return {
+        grammatik: Array.isArray(parsed.grammatik) ? parsed.grammatik : [],
+        wortschatz: Array.isArray(parsed.wortschatz) ? parsed.wortschatz : [],
+        satzstruktur: Array.isArray(parsed.satzstruktur) ? parsed.satzstruktur : [],
+      };
+    } catch (e) {
+      console.error('[TELC AI] correctLanguage parse error:', e);
+      setError('Fehleranalyse konnte nicht gelesen werden');
+      return null;
+    }
   }, [callAI]);
 
   const reset = useCallback(() => {

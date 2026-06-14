@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Users, MessageCircle } from 'lucide-react';
-import { PHASES } from './types';
-import type { DiscussionTurn, UserAssessment } from './types';
+import { Users, MessageCircle, ArrowLeft } from 'lucide-react';
+import { PHASES, CRITERIA_LABELS, GRADE_LABELS } from './types';
+import type { DiscussionTurn, UserAssessment, TELCSession, LanguageErrors, PartEvaluation, Grade, GradeCriterion } from './types';
 import type { PraesentationTopic, Zitat } from './types';
 import { buildEvaluation } from './scoring';
 import useSTT from './useSTT';
@@ -24,9 +24,17 @@ import { seedIfEmpty } from './lib/seedStorage';
 
 if (typeof window !== 'undefined') seedIfEmpty();
 
+type CurrentTab = 'pruefung' | 'verlauf';
+type DetailSubTab = 'eval' | 'errors';
+const CRITERIA: GradeCriterion[] = ['aufgabengerechtheit', 'fluessigkeit', 'repertoire', 'grammatische_richtigkeit', 'aussprache'];
+const GRADE_COLOR: Record<Grade, string> = { A: '#22c55e', B: '#60a5fa', C: '#f59e0b', D: '#ef4444' };
+
 export default function TELCModule() {
   const [view, setView] = useState<'exam' | 'admin'>('exam');
   const [phase, setPhase] = useState(PHASES.IDLE);
+  const [currentTab, setCurrentTab] = useState<CurrentTab>('pruefung');
+  const [detailSession, setDetailSession] = useState<TELCSession | null>(null);
+  const [detailSubTab, setDetailSubTab] = useState<DetailSubTab>('eval');
 
   const stt = useSTT();
   const ai = useAIPartner();
@@ -42,9 +50,7 @@ export default function TELCModule() {
   });
   const [aiPartnerResponse, setAiPartnerResponse] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<ReturnType<typeof buildEvaluation> | null>(null);
-  const [languageFeedback, setLanguageFeedback] = useState<string | null>(null);
-  const [historyView, setHistoryView] = useState(false);
-  const [expandedFeedbackIds, setExpandedFeedbackIds] = useState<Set<string>>(new Set());
+  const [languageErrors, setLanguageErrors] = useState<LanguageErrors | null>(null);
   const [partnerMode, setPartnerMode] = useState<'ai' | 'human' | null>(null);
 
   const resetExam = useCallback(() => {
@@ -55,8 +61,7 @@ export default function TELCModule() {
     setPartnerMode(null);
     setAiPartnerResponse(null);
     setEvaluation(null);
-    setLanguageFeedback(null);
-    setHistoryView(false);
+    setLanguageErrors(null);
     session.clearCurrent();
     stt.reset();
     ai.reset();
@@ -86,7 +91,6 @@ export default function TELCModule() {
     setPhase(mode === 'ai' ? PHASES.TEIL_1B_AI_SUMMARIZES : PHASES.PARTNER_1B_SUMMARIZES);
   }, [stt]);
 
-  // TEIL_1B_AI_SUMMARIZES — Leila summarizes + asks questions
   useEffect(() => {
     if (phase === PHASES.TEIL_1B_AI_SUMMARIZES && !aiPartnerResponse && !ai.loading && currentTopic) {
       ai.summarizeAndAsk(currentTopic.title, transcripts.teil_1a).then(response => {
@@ -103,7 +107,6 @@ export default function TELCModule() {
     setPhase(partnerMode === 'human' ? PHASES.PARTNER_1A_PRESENTS : PHASES.TEIL_1A_AI_PRESENTS);
   }, [transcripts, session, partnerMode, stt]);
 
-  // TEIL_1A_AI_PRESENTS — Leila presents on the topic from different angle
   useEffect(() => {
     if (phase === PHASES.TEIL_1A_AI_PRESENTS && !aiPartnerResponse && !ai.loading && currentTopic) {
       ai.presentOnTopic(currentTopic.title, currentTopic.prompt, transcripts.teil_1a).then(response => {
@@ -135,7 +138,6 @@ export default function TELCModule() {
     setPhase(PHASES.TEIL_2_DISKUSSION);
   }, [stt]);
 
-  // TEIL_1B_AI_ANSWERS — Leila briefly answers candidate's questions
   useEffect(() => {
     if (phase === PHASES.TEIL_1B_AI_ANSWERS && !aiPartnerResponse && !ai.loading && currentTopic) {
       ai.answerCandidateQuestions(currentTopic.title, transcripts.teil_1b_questions).then(response => {
@@ -167,15 +169,15 @@ export default function TELCModule() {
   }, []);
 
   useEffect(() => {
-    if (phase === PHASES.LANGUAGE_FEEDBACK && languageFeedback === null && !ai.loading) {
-      ai.correctLanguage(transcripts).then(text => {
-        if (text !== null) {
-          setLanguageFeedback(text);
-          session.saveSession({ language_feedback: text } as never);
+    if (phase === PHASES.LANGUAGE_FEEDBACK && languageErrors === null && !ai.loading) {
+      ai.correctLanguage(transcripts).then(errors => {
+        if (errors !== null) {
+          setLanguageErrors(errors);
+          session.saveSession({ language_errors: errors } as never);
         }
       });
     }
-  }, [phase, languageFeedback, ai, transcripts, session]);
+  }, [phase, languageErrors, ai, transcripts, session]);
 
   const handleLanguageFeedbackContinue = useCallback(() => {
     setPhase(PHASES.SELF_ASSESSMENT);
@@ -191,12 +193,14 @@ export default function TELCModule() {
 
   const handleTryAgain = useCallback(() => {
     resetExam();
+    setCurrentTab('pruefung');
   }, [resetExam]);
 
   const handleViewHistory = useCallback(() => {
     session.getHistory();
     resetExam();
-    setHistoryView(true);
+    setCurrentTab('verlauf');
+    setDetailSession(null);
   }, [session, resetExam]);
 
   const handleContinueToAnswers = useCallback(() => {
@@ -221,100 +225,371 @@ export default function TELCModule() {
     return <TELCAdmin onBack={() => setView('exam')} />;
   }
 
-  if (historyView) {
+  const renderTabs = () => (
+    <div style={{
+      display: 'flex', gap: 4, marginBottom: 16,
+      padding: 4, borderRadius: 10,
+      background: 'rgba(100,116,139,0.08)',
+      border: '1px solid rgba(100,116,139,0.15)',
+    }}>
+      <button
+        onClick={() => { setCurrentTab('pruefung'); setDetailSession(null); }}
+        style={{
+          flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
+          background: currentTab === 'pruefung' ? 'rgba(59,130,246,0.18)' : 'transparent',
+          color: currentTab === 'pruefung' ? '#60a5fa' : '#94a3b8',
+          fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}
+      >
+        Prüfung
+      </button>
+      <button
+        onClick={() => { session.getHistory(); setCurrentTab('verlauf'); setDetailSession(null); }}
+        style={{
+          flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
+          background: currentTab === 'verlauf' ? 'rgba(59,130,246,0.18)' : 'transparent',
+          color: currentTab === 'verlauf' ? '#60a5fa' : '#94a3b8',
+          fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}
+      >
+        Verlauf {session.history.length > 0 && <span style={{
+          fontSize: 11, padding: '1px 7px', borderRadius: 10, marginLeft: 4,
+          background: 'rgba(100,116,139,0.2)', color: '#cbd5e1',
+        }}>{session.history.length}</span>}
+      </button>
+    </div>
+  );
+
+  const renderVerlauf = () => {
+    if (detailSession) return renderDetailPage(detailSession);
+    if (session.history.length === 0) {
+      return (
+        <div style={{ padding: '0 4px' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px', textAlign: 'center', color: '#f1f5f9' }}>
+            Prüfungsverlauf
+          </h2>
+          <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, padding: 20 }}>
+            Keine abgeschlossenen Prüfungen
+          </p>
+        </div>
+      );
+    }
     return (
       <div style={{ padding: '0 4px' }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px', textAlign: 'center', color: '#f1f5f9' }}>
           Prüfungsverlauf
         </h2>
-        {session.history.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>
-            Keine abgeschlossenen Prüfungen
-          </p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {session.history.map(s => (
-              <div key={s.id} style={{
-                padding: 14, borderRadius: 10,
-                border: '1px solid rgba(100,116,139,0.2)', background: 'rgba(100,116,139,0.04)',
-              }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#f1f5f9' }}>
-                  {s.topic?.title || 'Unbekannt'}
-                </div>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>
-                  {new Date(s.timestamp).toLocaleDateString('de-DE')}
-                </div>
-                {s.ai_evaluation && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: s.ai_evaluation.passed ? '#22c55e' : '#ef4444' }}>
-                      {s.ai_evaluation.total_points}/40
-                    </span>
-                    <span style={{
-                      fontSize: 11, padding: '2px 8px', borderRadius: 4,
-                      background: s.ai_evaluation.passed ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                      color: s.ai_evaluation.passed ? '#22c55e' : '#ef4444',
-                    }}>
-                      {s.ai_evaluation.passed ? 'BESTANDEN' : 'NICHT BESTANDEN'}
-                    </span>
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                  {s.language_feedback && (
-                    <button
-                      onClick={() => setExpandedFeedbackIds(prev => {
-                        const next = new Set(prev);
-                        if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
-                        return next;
-                      })}
-                      style={{
-                        padding: '6px 12px', borderRadius: 6,
-                        border: '1px solid rgba(59,130,246,0.3)',
-                        background: 'rgba(59,130,246,0.08)', color: '#60a5fa',
-                        fontSize: 12, cursor: 'pointer',
-                      }}
-                    >
-                      {expandedFeedbackIds.has(s.id) ? 'Korrekturen ausblenden' : 'Korrekturen anzeigen'}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => session.deleteFromHistory(s.id)}
-                    style={{
-                      padding: '6px 12px', borderRadius: 6,
-                      border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444',
-                      fontSize: 12, cursor: 'pointer',
-                    }}
-                  >
-                    Löschen
-                  </button>
-                </div>
-                {s.language_feedback && expandedFeedbackIds.has(s.id) && (
-                  <pre style={{
-                    marginTop: 8, padding: 10, borderRadius: 8,
-                    background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(100,116,139,0.2)',
-                    color: '#cbd5e1', fontSize: 12, lineHeight: 1.6,
-                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                    fontFamily: 'inherit', margin: '8px 0 0',
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {session.history.map(s => (
+            <div key={s.id} style={{
+              padding: 14, borderRadius: 10,
+              border: '1px solid rgba(100,116,139,0.2)', background: 'rgba(100,116,139,0.04)',
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4, color: '#f1f5f9' }}>
+                {s.topic?.title || 'Unbekannt'}
+              </div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>
+                {new Date(s.timestamp).toLocaleDateString('de-DE', {
+                  day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                })}
+              </div>
+              {s.ai_evaluation && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: s.ai_evaluation.passed ? '#22c55e' : '#ef4444' }}>
+                    {s.ai_evaluation.total_points}/40
+                  </span>
+                  <span style={{
+                    fontSize: 11, padding: '3px 10px', borderRadius: 6,
+                    background: s.ai_evaluation.passed ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                    color: s.ai_evaluation.passed ? '#22c55e' : '#ef4444',
+                    fontWeight: 700, letterSpacing: 0.5,
                   }}>
-                    {s.language_feedback}
-                  </pre>
-                )}
+                    {s.ai_evaluation.passed ? 'BESTANDEN' : 'NICHT BESTANDEN'}
+                  </span>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => { setDetailSession(s); setDetailSubTab('eval'); }}
+                  style={{
+                    flex: 1, padding: '8px 12px', borderRadius: 8,
+                    border: '1px solid rgba(59,130,246,0.3)',
+                    background: 'rgba(59,130,246,0.08)', color: '#60a5fa',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Details anzeigen
+                </button>
+                <button
+                  onClick={() => session.deleteFromHistory(s.id)}
+                  style={{
+                    padding: '8px 12px', borderRadius: 8,
+                    border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                    fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  Löschen
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDetailPage = (s: TELCSession) => (
+    <div style={{ padding: '0 4px' }}>
+      <button
+        onClick={() => setDetailSession(null)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: 'none', border: 'none', color: '#94a3b8',
+          fontSize: 13, cursor: 'pointer', padding: 0, marginBottom: 14,
+        }}
+      >
+        <ArrowLeft size={16} /> Zurück zum Verlauf
+      </button>
+
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px', color: '#f1f5f9' }}>
+          {s.topic?.title || 'Unbekannt'}
+        </h2>
+        <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
+          {new Date(s.timestamp).toLocaleDateString('de-DE', {
+            day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+          })}
+        </p>
+      </div>
+
+      <div style={{
+        display: 'flex', gap: 4, marginBottom: 16,
+        padding: 4, borderRadius: 10,
+        background: 'rgba(100,116,139,0.08)',
+        border: '1px solid rgba(100,116,139,0.15)',
+      }}>
+        <button
+          onClick={() => setDetailSubTab('eval')}
+          style={{
+            flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
+            background: detailSubTab === 'eval' ? 'rgba(59,130,246,0.18)' : 'transparent',
+            color: detailSubTab === 'eval' ? '#60a5fa' : '#94a3b8',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Bewertung
+        </button>
+        <button
+          onClick={() => setDetailSubTab('errors')}
+          style={{
+            flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none',
+            background: detailSubTab === 'errors' ? 'rgba(59,130,246,0.18)' : 'transparent',
+            color: detailSubTab === 'errors' ? '#60a5fa' : '#94a3b8',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Fehleranalyse
+        </button>
+      </div>
+
+      {detailSubTab === 'eval' ? renderEvalDetail(s) : renderErrorsDetail(s)}
+    </div>
+  );
+
+  const renderEvalDetail = (s: TELCSession) => {
+    const ev = s.ai_evaluation;
+    if (!ev) {
+      return (
+        <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, padding: 20 }}>
+          Keine Bewertung verfügbar
+        </p>
+      );
+    }
+    return (
+      <div>
+        <div style={{
+          background: ev.passed ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+          border: `1px solid ${ev.passed ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
+          borderRadius: 10, padding: 14, marginBottom: 16,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Gesamtpunktzahl</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: ev.passed ? '#22c55e' : '#ef4444' }}>
+              {ev.total_points}<span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 400 }}> / 40</span>
+            </div>
+          </div>
+          <span style={{
+            fontSize: 12, padding: '4px 12px', borderRadius: 8,
+            background: ev.passed ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
+            color: ev.passed ? '#22c55e' : '#ef4444', fontWeight: 700, letterSpacing: 0.5,
+          }}>
+            {ev.passed ? 'BESTANDEN' : 'NICHT BESTANDEN'}
+          </span>
+        </div>
+
+        {ev.per_part && (
+          <>
+            {renderPartCard('Teil 1A — Präsentation', ev.per_part.teil_1a)}
+            {renderPartCard('Teil 1B — Fragen & Antworten', ev.per_part.teil_1b)}
+            {renderPartCard('Teil 2 — Diskussion', ev.per_part.teil_2)}
+          </>
+        )}
+
+        <div style={{
+          background: 'rgba(100,116,139,0.05)', borderRadius: 10,
+          border: '1px solid rgba(100,116,139,0.15)', padding: 14, marginBottom: 16,
+        }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 10px', color: '#f1f5f9' }}>
+            TELC-Hauptkriterien
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {CRITERIA.map(key => (
+              <div key={key} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '8px 10px', borderRadius: 6,
+                background: 'rgba(0,0,0,0.15)',
+              }}>
+                <span style={{ fontSize: 12, color: '#cbd5e1' }}>{CRITERIA_LABELS[key]}</span>
+                <span style={{
+                  fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
+                  background: `${GRADE_COLOR[ev[key]]}22`, color: GRADE_COLOR[ev[key]],
+                }}>
+                  {ev[key]} — {GRADE_LABELS[ev[key]]}
+                </span>
               </div>
             ))}
           </div>
+        </div>
+
+        {ev.feedback?.overall_comment && (
+          <div style={{
+            background: 'rgba(59,130,246,0.05)', borderRadius: 10,
+            border: '1px solid rgba(59,130,246,0.15)', padding: 14, marginBottom: 16,
+          }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 6px', color: '#60a5fa' }}>
+              Gesamtkommentar
+            </h3>
+            <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, color: '#f1f5f9' }}>
+              {ev.feedback.overall_comment}
+            </p>
+          </div>
         )}
-        <button
-          onClick={() => setHistoryView(false)}
-          style={{
-            width: '100%', marginTop: 16, padding: '12px 20px', borderRadius: 10,
-            border: 'none', background: 'linear-gradient(135deg, #3b82f6, #60a5fa)',
-            color: '#06081a', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          Neue Prüfung
-        </button>
       </div>
     );
-  }
+  };
+
+  const renderPartCard = (title: string, part: PartEvaluation) => (
+    <div style={{
+      background: 'rgba(100,116,139,0.05)', borderRadius: 10,
+      border: '1px solid rgba(100,116,139,0.15)', padding: 14, marginBottom: 10,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#f1f5f9' }}>{title}</h3>
+        <span style={{
+          fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
+          background: `${GRADE_COLOR[part.grade]}22`, color: GRADE_COLOR[part.grade],
+        }}>
+          {part.grade} — {GRADE_LABELS[part.grade]}
+        </span>
+      </div>
+      {part.content_notes.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#22c55e', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Inhalt
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 1.6, color: '#cbd5e1' }}>
+            {part.content_notes.map((n, i) => <li key={i}>{n}</li>)}
+          </ul>
+        </div>
+      )}
+      {part.language_notes.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#60a5fa', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Sprache
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 1.6, color: '#cbd5e1' }}>
+            {part.language_notes.map((n, i) => <li key={i}>{n}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderErrorsDetail = (s: TELCSession) => {
+    const errs = s.language_errors;
+    if (!errs && s.language_feedback) {
+      return (
+        <pre style={{
+          padding: 12, borderRadius: 10,
+          background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(100,116,139,0.2)',
+          color: '#cbd5e1', fontSize: 12, lineHeight: 1.6,
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          fontFamily: 'inherit', margin: 0,
+        }}>
+          {s.language_feedback}
+        </pre>
+      );
+    }
+    if (!errs) {
+      return (
+        <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 14, padding: 20 }}>
+          Keine Fehleranalyse verfügbar
+        </p>
+      );
+    }
+    const total = errs.grammatik.length + errs.wortschatz.length + errs.satzstruktur.length;
+    if (total === 0) {
+      return (
+        <div style={{
+          padding: 16, borderRadius: 10,
+          background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)',
+          color: '#86efac', fontSize: 14, textAlign: 'center',
+        }}>
+          ✅ Keine sprachlichen Fehler gefunden — sehr gut!
+        </div>
+      );
+    }
+    return (
+      <div>
+        {errs.grammatik.length > 0 && (
+          <ErrorSection title="Grammatikfehler" count={errs.grammatik.length} color="#ef4444">
+            {errs.grammatik.map((e, i) => (
+              <div key={i} style={errCardStyle}>
+                <ErrRow icon="❌" text={e.falsch} color="#fca5a5" />
+                <ErrRow icon="✅" text={e.richtig} color="#86efac" />
+                {e.regel && <ErrRow icon="📚" text={e.regel} color="#60a5fa" bold small />}
+                {e.erklaerung && <ErrRow icon="💡" text={e.erklaerung} color="#fcd34d" small />}
+                {e.beispiel && <ErrRow icon="📝" text={e.beispiel} color="#cbd5e1" small italic />}
+              </div>
+            ))}
+          </ErrorSection>
+        )}
+        {errs.wortschatz.length > 0 && (
+          <ErrorSection title="Wortschatzfehler" count={errs.wortschatz.length} color="#f59e0b">
+            {errs.wortschatz.map((e, i) => (
+              <div key={i} style={errCardStyle}>
+                <ErrRow icon="❌" text={e.falsch} color="#fca5a5" />
+                <ErrRow icon="✅" text={e.richtig} color="#86efac" />
+                {e.unterschied && <ErrRow icon="💡" text={e.unterschied} color="#fcd34d" small />}
+              </div>
+            ))}
+          </ErrorSection>
+        )}
+        {errs.satzstruktur.length > 0 && (
+          <ErrorSection title="Satzstrukturfehler" count={errs.satzstruktur.length} color="#8b5cf6">
+            {errs.satzstruktur.map((e, i) => (
+              <div key={i} style={errCardStyle}>
+                <ErrRow icon="❌" text={e.falsch} color="#fca5a5" />
+                <ErrRow icon="✅" text={e.richtig} color="#86efac" />
+                {e.regel && <ErrRow icon="📚" text={e.regel} color="#60a5fa" bold small />}
+              </div>
+            ))}
+          </ErrorSection>
+        )}
+      </div>
+    );
+  };
 
   const renderPhase = () => {
     switch (phase) {
@@ -512,7 +787,7 @@ export default function TELCModule() {
       case PHASES.LANGUAGE_FEEDBACK:
         return (
           <LanguageFeedbackPhase
-            corrections={languageFeedback}
+            errors={languageErrors}
             loading={ai.loading}
             error={ai.error}
             onContinue={handleLanguageFeedbackContinue}
@@ -533,10 +808,56 @@ export default function TELCModule() {
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '20px 16px 40px', minHeight: '100vh' }}>
-      {renderPhase()}
+      {renderTabs()}
+      {currentTab === 'pruefung' ? renderPhase() : renderVerlauf()}
       <style>{`
         textarea:focus { outline: none; border-color: rgba(59,130,246,0.4); }
       `}</style>
     </div>
   );
 }
+
+function ErrorSection({ title, count, color, children }: { title: string; count: number; color: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <h3 style={{
+        fontSize: 14, fontWeight: 700, margin: '0 0 10px',
+        color, display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        {title}
+        <span style={{
+          fontSize: 11, padding: '2px 8px', borderRadius: 10,
+          background: `${color}22`, color,
+        }}>
+          {count}
+        </span>
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ErrRow({ icon, text, color, small, bold, italic }: { icon: string; text: string; color: string; small?: boolean; bold?: boolean; italic?: boolean }) {
+  return (
+    <div style={{
+      fontSize: small ? 12 : 13,
+      lineHeight: 1.5,
+      color,
+      fontWeight: bold ? 600 : 400,
+      fontStyle: italic ? 'italic' : 'normal',
+      display: 'flex', gap: 6, alignItems: 'flex-start',
+    }}>
+      <span style={{ flexShrink: 0 }}>{icon}</span>
+      <span style={{ flex: 1 }}>{text}</span>
+    </div>
+  );
+}
+
+const errCardStyle: React.CSSProperties = {
+  padding: 12, borderRadius: 10,
+  border: '1px solid rgba(100,116,139,0.2)',
+  background: 'rgba(100,116,139,0.04)',
+  display: 'flex', flexDirection: 'column', gap: 6,
+};
