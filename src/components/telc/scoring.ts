@@ -1,4 +1,4 @@
-import type { Grade, AIEvaluation, GradeCriterion, DetailedEvaluation } from './types';
+import type { Grade, AIEvaluation, GradeCriterion, DetailedEvaluation, Teil2DetailedEvaluation } from './types';
 
 const POINTS: Record<Grade, number> = {
   A: 8,
@@ -40,6 +40,15 @@ interface RawPart {
   language_notes?: string[];
 }
 
+interface RawTeil2 extends RawPart {
+  inhalt?: string;
+  argumentation?: string;
+  reaktion?: string;
+  sprache?: string;
+  interaktion?: string;
+  gesamtkommentar?: string;
+}
+
 interface RawEval {
   aufgabengerechtheit?: Grade;
   fluessigkeit?: Grade;
@@ -51,7 +60,7 @@ interface RawEval {
   per_part?: {
     teil_1a?: RawPart;
     teil_1b?: RawPart;
-    teil_2?: RawPart;
+    teil_2?: RawTeil2;
   };
 }
 
@@ -60,6 +69,20 @@ function buildPart(raw: RawPart | undefined): { grade: Grade; content_notes: str
     grade: raw?.grade || 'B',
     content_notes: Array.isArray(raw?.content_notes) ? raw.content_notes : [],
     language_notes: Array.isArray(raw?.language_notes) ? raw.language_notes : [],
+  };
+}
+
+function buildTeil2(raw: RawTeil2 | undefined): Teil2DetailedEvaluation {
+  return {
+    grade: raw?.grade || 'B',
+    inhalt: typeof raw?.inhalt === 'string' ? raw.inhalt : '',
+    argumentation: typeof raw?.argumentation === 'string' ? raw.argumentation : '',
+    reaktion: typeof raw?.reaktion === 'string' ? raw.reaktion : '',
+    sprache: typeof raw?.sprache === 'string' ? raw.sprache : '',
+    interaktion: typeof raw?.interaktion === 'string' ? raw.interaktion : '',
+    gesamtkommentar: typeof raw?.gesamtkommentar === 'string' ? raw.gesamtkommentar : '',
+    content_notes: Array.isArray(raw?.content_notes) ? raw.content_notes : undefined,
+    language_notes: Array.isArray(raw?.language_notes) ? raw.language_notes : undefined,
   };
 }
 
@@ -85,7 +108,7 @@ export function buildEvaluation(raw: RawEval): AIEvaluation {
     const detailed: DetailedEvaluation = {
       teil_1a: buildPart(raw.per_part.teil_1a),
       teil_1b: buildPart(raw.per_part.teil_1b),
-      teil_2: buildPart(raw.per_part.teil_2),
+      teil_2: buildTeil2(raw.per_part.teil_2),
     };
     evaluation.per_part = detailed;
   }

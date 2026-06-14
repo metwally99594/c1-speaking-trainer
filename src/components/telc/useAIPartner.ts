@@ -254,6 +254,17 @@ ${candidateTeil2Turns ? '— ' + candidateTeil2Turns : '[Keine Beiträge des Kan
 
 WICHTIG: Teil 2 (Diskussion) zählt gleichwertig zu Teil 1. Beziehe die Beiträge des Kandidaten in der Diskussion AUSDRÜCKLICH in deine Bewertung jedes Kriteriums ein. Erwähne im "overall_comment" konkret, wie der Kandidat in der Diskussion agiert hat.
 
+═══════════════════════════════════════════════
+[Teil 2 - Diskussion Bewertung] — DETAILLIERTE EINZELANALYSE
+═══════════════════════════════════════════════
+Bewerte die Diskussion separat auf diesen 5 Achsen (im Feld "per_part.teil_2" siehe unten):
+1. Inhaltliche Tiefe (inhalt) — Hat der Kandidat seine Ideen entwickelt und vertieft? Konkrete Argumente, Beispiele, Differenzierung?
+2. Argumentation (argumentation) — Hat er logische, kohärente Argumente verwendet? Begründungen, Gegenargumente, Schlussfolgerungen?
+3. Reaktion auf Partner (reaktion) — Hat er angemessen auf Leilas/des Partners Aussagen reagiert? Aufgegriffen, widersprochen, ergänzt?
+4. Sprachliche Qualität (sprache) — Niveau der Sprache in der Diskussion: Wortschatz, Diskursmarker, Idiomatik, Genauigkeit?
+5. Interaktion (interaktion) — Hat er den Dialog natürlich geführt? Floss, Übergänge, Fragen, Gesprächskultur?
+Schreibe für jede Achse 2–3 konkrete Sätze (in Deutsch). Erwähne SPEZIFISCHE Stellen aus dem Transkript.
+
 BEWERTUNGSSKALA:
 A = Hervorragend (C1 in jeder Hinsicht)
 B = Gut (vorwiegend C1)
@@ -293,13 +304,20 @@ Antworte NUR mit JSON, kein Markdown:
     },
     "teil_2": {
       "grade": "A|B|C|D",
-      "content_notes": ["Beobachtung zur Argumentation in Turn 1", "Turn 2: ...", "Reaktion auf Partnerargumente", "..."],
-      "language_notes": ["Sprachliche Stärken/Schwächen in der Diskussion", "..."]
+      "inhalt": "2–3 Sätze: Wie tief hat der Kandidat seine Ideen entwickelt? Konkrete Beispiele aus dem Transkript.",
+      "argumentation": "2–3 Sätze: Qualität der Argumente und Begründungen, mit Verweis auf konkrete Stellen.",
+      "reaktion": "2–3 Sätze: Wie hat der Kandidat auf den Partner reagiert? Konkrete Beispiele.",
+      "sprache": "2–3 Sätze: Sprachliche Qualität in der Diskussion — Wortschatz, Diskursmarker, Genauigkeit.",
+      "interaktion": "2–3 Sätze: Natürlichkeit des Dialogs, Fluss, Gesprächskultur.",
+      "gesamtkommentar": "1–2 Sätze: Gesamteindruck der Diskussionsleistung."
     }
   }
 }
 
-WICHTIG: Das "per_part" Feld ist Pflicht. Gib in jedem Teil mindestens 2 content_notes und 2 language_notes.`;
+WICHTIG:
+- Das "per_part" Feld ist Pflicht.
+- Für teil_1a und teil_1b: mindestens 2 content_notes und 2 language_notes.
+- Für teil_2: ALLE 6 Textfelder (inhalt, argumentation, reaktion, sprache, interaktion, gesamtkommentar) AUSFÜLLEN — keine leeren Strings.`;
     const result = await callAI(prompt, 'Bewerte die Prüfungstranskripte nach TELC C1 Bewertungsskala.');
     if (!result) return null;
     try {

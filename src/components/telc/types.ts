@@ -63,10 +63,22 @@ export interface PartEvaluation {
   language_notes: string[];
 }
 
+export interface Teil2DetailedEvaluation {
+  grade: Grade;
+  inhalt: string;
+  argumentation: string;
+  reaktion: string;
+  sprache: string;
+  interaktion: string;
+  gesamtkommentar: string;
+  content_notes?: string[];
+  language_notes?: string[];
+}
+
 export interface DetailedEvaluation {
   teil_1a: PartEvaluation;
   teil_1b: PartEvaluation;
-  teil_2: PartEvaluation;
+  teil_2: Teil2DetailedEvaluation;
 }
 
 export interface AIEvaluation {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Users, MessageCircle, ArrowLeft } from 'lucide-react';
 import { PHASES, CRITERIA_LABELS, GRADE_LABELS } from './types';
-import type { DiscussionTurn, UserAssessment, TELCSession, LanguageErrors, PartEvaluation, Grade, GradeCriterion } from './types';
+import type { DiscussionTurn, UserAssessment, TELCSession, LanguageErrors, PartEvaluation, Teil2DetailedEvaluation, Grade, GradeCriterion } from './types';
 import type { PraesentationTopic, Zitat } from './types';
 import { buildEvaluation } from './scoring';
 import useSTT from './useSTT';
@@ -432,7 +432,7 @@ export default function TELCModule() {
           <>
             {renderPartCard('Teil 1A — Präsentation', ev.per_part.teil_1a)}
             {renderPartCard('Teil 1B — Fragen & Antworten', ev.per_part.teil_1b)}
-            {renderPartCard('Teil 2 — Diskussion', ev.per_part.teil_2)}
+            {renderTeil2DetailCard(ev.per_part.teil_2)}
           </>
         )}
 
@@ -473,6 +473,81 @@ export default function TELCModule() {
             <p style={{ fontSize: 13, lineHeight: 1.6, margin: 0, color: '#f1f5f9' }}>
               {ev.feedback.overall_comment}
             </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderTeil2DetailCard = (part: Teil2DetailedEvaluation) => {
+    const axes: Array<{ key: keyof Teil2DetailedEvaluation; label: string; color: string }> = [
+      { key: 'inhalt', label: 'Inhaltliche Tiefe', color: '#22c55e' },
+      { key: 'argumentation', label: 'Argumentation', color: '#60a5fa' },
+      { key: 'reaktion', label: 'Reaktion auf Partner', color: '#a78bfa' },
+      { key: 'sprache', label: 'Sprachliche Qualität', color: '#f59e0b' },
+      { key: 'interaktion', label: 'Interaktion', color: '#ec4899' },
+    ];
+    const hasDetailed = axes.some(a => typeof part[a.key] === 'string' && (part[a.key] as string).trim().length > 0);
+    if (!hasDetailed && (part.content_notes?.length || part.language_notes?.length)) {
+      return renderPartCard('Teil 2 — Diskussion', {
+        grade: part.grade,
+        content_notes: part.content_notes || [],
+        language_notes: part.language_notes || [],
+      });
+    }
+    return (
+      <div style={{
+        background: 'rgba(100,116,139,0.05)', borderRadius: 10,
+        border: '1px solid rgba(100,116,139,0.15)', padding: 14, marginBottom: 10,
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, margin: 0, color: '#f1f5f9' }}>
+            Teil 2 — Diskussion
+          </h3>
+          <span style={{
+            fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 6,
+            background: `${GRADE_COLOR[part.grade]}22`, color: GRADE_COLOR[part.grade],
+          }}>
+            {part.grade} — {GRADE_LABELS[part.grade]}
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {axes.map(a => {
+            const text = (part[a.key] as string) || '';
+            if (!text.trim()) return null;
+            return (
+              <div key={a.key} style={{
+                padding: 10, borderRadius: 8,
+                background: `${a.color}0d`,
+                border: `1px solid ${a.color}33`,
+              }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, marginBottom: 4,
+                  color: a.color, textTransform: 'uppercase', letterSpacing: 0.5,
+                }}>
+                  {a.label}
+                </div>
+                <div style={{ fontSize: 12, lineHeight: 1.6, color: '#cbd5e1' }}>
+                  {text}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {part.gesamtkommentar && part.gesamtkommentar.trim() && (
+          <div style={{
+            marginTop: 10, padding: 10, borderRadius: 8,
+            background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)',
+          }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, marginBottom: 4,
+              color: '#60a5fa', textTransform: 'uppercase', letterSpacing: 0.5,
+            }}>
+              Gesamtkommentar
+            </div>
+            <div style={{ fontSize: 12, lineHeight: 1.6, color: '#f1f5f9' }}>
+              {part.gesamtkommentar}
+            </div>
           </div>
         )}
       </div>
