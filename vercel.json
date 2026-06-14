@@ -4,5 +4,13 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/anthropic.mjs": {
+      "maxDuration": 60
+    },
+    "api/transcribe.mjs": {
+      "maxDuration": 60
+    }
+  }
 }
