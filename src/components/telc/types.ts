@@ -106,6 +106,7 @@ export interface LanguageErrors {
   grammatik: GrammatikError[];
   wortschatz: WortschatzError[];
   satzstruktur: SatzstrukturError[];
+  haeufigster_fehler?: string;
 }
 
 export interface UserAssessment {

@@ -552,6 +552,17 @@ export default function TELCModule() {
     }
     return (
       <div>
+        {errs.haeufigster_fehler && (
+          <div style={{
+            padding: 12, borderRadius: 10, marginBottom: 16,
+            background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)',
+            color: '#fdba74', fontSize: 13, fontWeight: 500,
+            display: 'flex', gap: 8, alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 18, flexShrink: 0 }}>🎯</span>
+            <span><strong style={{ color: '#fed7aa' }}>Häufigster Fehler:</strong> {errs.haeufigster_fehler}</span>
+          </div>
+        )}
         {errs.grammatik.length > 0 && (
           <ErrorSection title="Grammatikfehler" count={errs.grammatik.length} color="#ef4444">
             {errs.grammatik.map((e, i) => (

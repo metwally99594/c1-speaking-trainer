@@ -339,48 +339,62 @@ WICHTIG: Das "per_part" Feld ist Pflicht. Gib in jedem Teil mindestens 2 content
       `[Teil 2 - Diskussion]\n${candidateTurns.length > 0 ? candidateTurns.join('\n') : '[Keine Aufzeichnung]'}`,
     ].join('\n\n');
 
-    const prompt = `Du bist ein erfahrener C1-Deutschlehrer mit Spezialisierung auf detaillierte sprachliche Fehleranalyse.
+    const prompt = `Du bist ein erfahrener C1-Deutschlehrer mit Spezialisierung auf persönliche Fehleranalyse.
 
 DEINE AUFGABE:
-Analysiere den Text des Kandidaten und kategorisiere ALLE Fehler in drei Kategorien:
-1. Grammatikfehler (Tempora, Modi, Konjunktiv, Passiv, Artikel-Deklination, Endungen, Verbvalenz)
-2. Wortschatzfehler (falsche Wortwahl, ähnliche aber falsche Wörter, idiomatische Fehler)
-3. Satzstrukturfehler (Wortstellung, Nebensätze, Konnektoren, Hauptsatz-Aufbau)
+Analysiere den persönlichen Text DIESES Kandidaten und identifiziere NUR die Sätze mit ECHTEN Fehlern.
 
-Sei GRÜNDLICH — übersehe keinen Fehler, auch keinen kleinen.
+STRENGE REGELN:
+1. Korrigiere NUR Sätze mit einem ECHTEN Fehler — NICHT Sätze die "verbessert werden könnten".
+   Stilistische Vorlieben sind KEINE Fehler. Nur echte Regelverstöße zählen.
+2. Wenn ein Satz vollständig korrekt ist, erwähne ihn NICHT in der Antwort.
+3. Verwende die EXAKTEN Worte des Kandidaten in "falsch" — kopiere sie wörtlich, ändere nichts.
+4. Bei "regel": Nenne den SPEZIFISCHEN Regelnamen, NICHT die Kategorie generisch.
+   ✅ Gut: "Dativ nach 'vertrauen'", "Verbendstellung im Nebensatz", "Großschreibung von Substantiven", "Konjunktiv II nach 'als ob'"
+   ❌ Schlecht: "Grammatik", "Satzstruktur", "Wortschatzfehler"
+5. Bei "erklaerung": EINE EINZIGE klare Sätze, die erklärt warum es falsch ist.
+6. Bei "beispiel": Ein zusätzlicher Beispielsatz, der DIESELBE Regel korrekt anwendet.
+7. ORDNE die Fehler innerhalb jeder Kategorie nach HÄUFIGKEIT (am häufigsten zuerst).
+   Wenn derselbe Regelfehler mehrmals vorkommt, liste alle Instanzen direkt hintereinander.
+8. Bestimme die Regel, die der Kandidat AM HÄUFIGSTEN verletzt hat (in allen Kategorien zusammen), und nenne sie in "haeufigster_fehler".
 
-ANTWORTE NUR MIT JSON (kein Markdown, keine Erklärung davor/danach):
+KATEGORIEN:
+- grammatik: Tempora, Modi, Konjunktiv, Passiv, Artikel-Deklination, Endungen, Verbvalenz, Kasus
+- wortschatz: falsche Wortwahl, ähnliche aber falsche Wörter, idiomatische Fehler
+- satzstruktur: Wortstellung, Nebensätze, Konnektoren, Hauptsatz-Aufbau
+
+ANTWORTE NUR MIT JSON (kein Markdown, kein Intro, kein Outro):
 {
   "grammatik": [
     {
-      "falsch": "Wörtlich falscher Satz oder Phrase",
-      "richtig": "Korrigierte Version",
-      "regel": "Name der grammatischen Regel (z.B. 'Konjunktiv II', 'Akkusativ nach Präposition durch')",
-      "erklaerung": "Ausführliche Erklärung in 2-3 Sätzen: Was war falsch, welche Regel gilt, warum die Korrektur richtig ist",
-      "beispiel": "Ein zusätzlicher Beispielsatz, der dieselbe Regel korrekt anwendet"
+      "falsch": "Wörtlich der falsche Satz/die falsche Phrase, exakt wie vom Kandidaten gesagt",
+      "richtig": "Die exakt korrekte Version",
+      "regel": "Spezifischer Regelname (z.B. 'Dativ nach vertrauen')",
+      "erklaerung": "Ein einziger Satz: warum der Fehler ein Fehler ist",
+      "beispiel": "Ein zusätzlicher Beispielsatz mit derselben Regel korrekt angewendet"
     }
   ],
   "wortschatz": [
     {
       "falsch": "Wörtlich falsches Wort/Phrase im Kontext",
-      "richtig": "Bessere Alternative",
-      "unterschied": "Erkläre den Unterschied zwischen den beiden Wörtern und warum die Alternative im Kontext passender ist"
+      "richtig": "Die korrekte Alternative",
+      "unterschied": "Ein Satz: Was ist der Bedeutungsunterschied?"
     }
   ],
   "satzstruktur": [
     {
-      "falsch": "Falsch strukturierter Satz",
+      "falsch": "Wörtlich der falsch strukturierte Satz",
       "richtig": "Korrekt strukturierter Satz",
-      "regel": "Name der Strukturregel + kurze Erklärung (z.B. 'Verb-Endstellung im Nebensatz nach \\"dass\\"')"
+      "regel": "Spezifischer Regelname (z.B. 'Verbendstellung im Nebensatz nach dass')"
     }
-  ]
+  ],
+  "haeufigster_fehler": "Name der Regel, die der Kandidat am häufigsten verletzt hat"
 }
 
 WICHTIG:
 - Jede Kategorie muss ein Array sein (auch wenn leer: []).
-- Wenn keine Fehler in einer Kategorie: leeres Array [].
 - Identifiziere die spezifischste Kategorie pro Fehler — keine Doppel-Einträge.
-- Fokus auf C1-Niveau-Fehler.
+- Bei NULL Fehlern: alle Arrays leer und "haeufigster_fehler": "" zurückgeben.
 
 Text des Kandidaten:
 """
@@ -396,6 +410,7 @@ ${allText}
         grammatik: Array.isArray(parsed.grammatik) ? parsed.grammatik : [],
         wortschatz: Array.isArray(parsed.wortschatz) ? parsed.wortschatz : [],
         satzstruktur: Array.isArray(parsed.satzstruktur) ? parsed.satzstruktur : [],
+        haeufigster_fehler: typeof parsed.haeufigster_fehler === 'string' ? parsed.haeufigster_fehler : undefined,
       };
     } catch (e) {
       console.error('[TELC AI] correctLanguage parse error:', e);

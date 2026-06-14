@@ -49,6 +49,18 @@ export default function LanguageFeedbackPhase({ errors, loading, error, onContin
         </div>
       )}
 
+      {errors !== null && total > 0 && errors.haeufigster_fehler && (
+        <div style={{
+          padding: 12, borderRadius: 10, marginBottom: 16,
+          background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)',
+          color: '#fdba74', fontSize: 13, fontWeight: 500,
+          display: 'flex', gap: 8, alignItems: 'center',
+        }}>
+          <span style={{ fontSize: 18, flexShrink: 0 }}>🎯</span>
+          <span><strong style={{ color: '#fed7aa' }}>Häufigster Fehler:</strong> {errors.haeufigster_fehler}</span>
+        </div>
+      )}
+
       {errors !== null && errors.grammatik.length > 0 && (
         <Section title="Grammatikfehler" count={errors.grammatik.length} color="#ef4444">
           {errors.grammatik.map((e, i) => <GrammatikCard key={i} err={e} />)}
