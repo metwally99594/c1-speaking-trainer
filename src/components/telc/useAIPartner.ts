@@ -329,14 +329,15 @@ WICHTIG: Das "per_part" Feld ist Pflicht. Gib in jedem Teil mindestens 2 content
       teil_2_turns?: Array<{ role: string; text: string }>;
     }
   ): Promise<LanguageErrors | null> => {
+    const candidateTurns = (transcripts.teil_2_turns || [])
+      .filter(t => t.role === 'candidate' || t.role === 'person_a')
+      .map(t => t.text);
+
     const allText = [
-      transcripts.teil_1a,
-      transcripts.teil_1b_answers,
-      transcripts.teil_1b_questions,
-      ...(transcripts.teil_2_turns || [])
-        .filter(t => t.role === 'candidate' || t.role === 'person_a')
-        .map(t => t.text),
-    ].filter(Boolean).join('\n\n');
+      `[Teil 1A - Präsentation]\n${transcripts.teil_1a || '[Keine Aufzeichnung]'}`,
+      `[Teil 1B - Antworten]\n${transcripts.teil_1b_answers || '[Keine Aufzeichnung]'}\n${transcripts.teil_1b_questions || ''}`.trim(),
+      `[Teil 2 - Diskussion]\n${candidateTurns.length > 0 ? candidateTurns.join('\n') : '[Keine Aufzeichnung]'}`,
+    ].join('\n\n');
 
     const prompt = `Du bist ein erfahrener C1-Deutschlehrer mit Spezialisierung auf detaillierte sprachliche Fehleranalyse.
 
