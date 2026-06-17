@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTopicStore } from '../../store/useTopicStore';
 import type { LanguageErrors } from './types';
 
 export const FIXED_DISCUSSION_QUESTIONS = [
@@ -127,9 +128,13 @@ export default function useAIPartner() {
     setLoading(true);
     setError(null);
     try {
+      const openrouterKey = useTopicStore.getState().apiKeys.openrouter;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (openrouterKey) headers['x-api-key'] = openrouterKey;
+
       const response = await fetch('/api/anthropic', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           messages: [
             { role: 'system', content: systemPrompt },

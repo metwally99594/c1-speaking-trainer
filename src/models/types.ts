@@ -48,6 +48,11 @@ export interface VoiceSettings {
   rate: number;
 }
 
+export interface ApiKeys {
+  openrouter: string;
+  groq: string;
+}
+
 export interface Topic {
   id: string;
   title: string;

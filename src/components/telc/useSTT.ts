@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { useTopicStore } from '../../store/useTopicStore';
 
 const MIME_TYPES = [
   'audio/webm;codecs=opus',
@@ -105,8 +106,13 @@ export default function useSTT(): STTHook {
           console.log('[TELC STT] sending to /api/transcribe, file:', `recording.${ext}`, 'size:', totalSize);
           console.log('[TELC STT] FormData keys:', Array.from(formData.keys()));
 
+          const groqKey = useTopicStore.getState().apiKeys.groq;
+          const headers: Record<string, string> = {};
+          if (groqKey) headers['x-api-key'] = groqKey;
+
           const response = await fetch('/api/transcribe', {
             method: 'POST',
+            headers,
             body: formData,
           });
 

@@ -44,7 +44,8 @@ export default async function handler(req) {
       });
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const clientKey = req.headers.get('x-api-key');
+    const apiKey = clientKey || process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       const allVars = Object.keys(process.env).filter(k => !k.includes('SECRET') && !k.includes('KEY') && !k.includes('TOKEN'));
       return new Response(JSON.stringify({
@@ -59,7 +60,7 @@ export default async function handler(req) {
     }
 
     const body = {
-      model: 'anthropic/claude-sonnet-4.6',
+      model: 'deepseek/deepseek-chat',
       max_tokens: 2000,
       messages: messages.map(m => ({
         role: m.role === 'system' ? 'system' : m.role === 'assistant' ? 'assistant' : 'user',

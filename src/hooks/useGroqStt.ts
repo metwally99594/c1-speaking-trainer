@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useTopicStore } from '../store/useTopicStore';
 
 interface UseGroqSttOptions {
   timeslice?: number;
@@ -73,7 +74,10 @@ export function useGroqStt(options: UseGroqSttOptions = {}): UseGroqSttReturn {
             try {
               const formData = new FormData();
               formData.append('file', chunk, 'chunk.webm');
-              const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+              const groqKey1 = useTopicStore.getState().apiKeys.groq;
+              const headers1: Record<string, string> = {};
+              if (groqKey1) headers1['x-api-key'] = groqKey1;
+              const res = await fetch('/api/transcribe', { method: 'POST', headers: headers1, body: formData });
               const data = await res.json();
               if (res.ok && data.text) {
                 setTranscriptState((prev) => {
@@ -105,7 +109,10 @@ export function useGroqStt(options: UseGroqSttOptions = {}): UseGroqSttReturn {
             const blob = new Blob(allChunks, { type: 'audio/webm' });
             const formData = new FormData();
             formData.append('file', blob, 'recording.webm');
-            const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+            const groqKey2 = useTopicStore.getState().apiKeys.groq;
+            const headers2: Record<string, string> = {};
+            if (groqKey2) headers2['x-api-key'] = groqKey2;
+            const res = await fetch('/api/transcribe', { method: 'POST', headers: headers2, body: formData });
             const data = await res.json();
             if (res.ok && data.text) {
               const final = data.text.trim();
@@ -126,7 +133,10 @@ export function useGroqStt(options: UseGroqSttOptions = {}): UseGroqSttReturn {
             const blob = new Blob(allChunks, { type: 'audio/webm' });
             const formData = new FormData();
             formData.append('file', blob, 'recording.webm');
-            const res = await fetch('/api/transcribe', { method: 'POST', body: formData });
+            const groqKey3 = useTopicStore.getState().apiKeys.groq;
+            const headers3: Record<string, string> = {};
+            if (groqKey3) headers3['x-api-key'] = groqKey3;
+            const res = await fetch('/api/transcribe', { method: 'POST', headers: headers3, body: formData });
             const data = await res.json();
             if (res.ok && data.text) {
               setTranscriptState((prev) => {

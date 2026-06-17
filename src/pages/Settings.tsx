@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Download, Upload, Trash2, ShieldAlert, CheckCircle2, Volume2, Play } from 'lucide-react';
+import { Download, Upload, Trash2, ShieldAlert, CheckCircle2, Volume2, Play, Key, Eye, EyeOff } from 'lucide-react';
 
 function getVoiceProvider(voice: SpeechSynthesisVoice): string {
   if (voice.name.includes('Microsoft')) return 'Microsoft';
@@ -17,10 +17,14 @@ export default function Settings() {
   const resetAll = useTopicStore(state => state.resetAll);
   const voiceSettings = useTopicStore(state => state.voiceSettings);
   const updateVoiceSettings = useTopicStore(state => state.updateVoiceSettings);
+  const apiKeys = useTopicStore(state => state.apiKeys);
+  const setApiKeys = useTopicStore(state => state.setApiKeys);
   
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [showOpenrouterKey, setShowOpenrouterKey] = useState(false);
+  const [showGroqKey, setShowGroqKey] = useState(false);
 
   // Load available voices
   useEffect(() => {
@@ -148,6 +152,83 @@ export default function Settings() {
              <div className="mt-4 flex items-center gap-2 text-red-500 bg-red-500/10 border border-red-500/20 p-4 rounded-xl">
                <ShieldAlert size={18} />
                <span className="text-sm font-bold uppercase tracking-widest">Import fehlgeschlagen. Ungültige Datei.</span>
+             </div>
+           )}
+        </section>
+
+        {/* API Keys Section */}
+        <section className="bg-gray-950 border border-gray-900 rounded-3xl p-8 shadow-xl">
+           <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+             <Key size={20} className="text-yellow-500" />
+             Eigene API-Schlüssel (BYOK)
+           </h3>
+           <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+             Hinterlege deine eigenen API-Schlüssel, damit die KI-Abfragen über dein Konto abgerechnet werden.
+             Die Schlüssel werden nur lokal in deinem Browser gespeichert.
+           </p>
+
+           <div className="space-y-5">
+             {/* OpenRouter Key */}
+             <div>
+               <label className="block text-sm font-medium text-gray-400 mb-2">OpenRouter API-Schlüssel</label>
+               <div className="relative">
+                 <input
+                   type={showOpenrouterKey ? 'text' : 'password'}
+                   value={apiKeys.openrouter}
+                   onChange={(e) => setApiKeys({ openrouter: e.target.value })}
+                   placeholder="sk-or-v1-..."
+                   className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 pr-12 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                 />
+                 <button
+                   onClick={() => setShowOpenrouterKey(!showOpenrouterKey)}
+                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                 >
+                   {showOpenrouterKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                 </button>
+               </div>
+               <a
+                 href="https://openrouter.ai/keys"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 className="text-yellow-500/70 hover:text-yellow-500 text-xs mt-2 inline-block underline"
+               >
+                 OpenRouter-Key erstellen →
+               </a>
+             </div>
+
+             {/* Groq Key */}
+             <div>
+               <label className="block text-sm font-medium text-gray-400 mb-2">Groq API-Schlüssel</label>
+               <div className="relative">
+                 <input
+                   type={showGroqKey ? 'text' : 'password'}
+                   value={apiKeys.groq}
+                   onChange={(e) => setApiKeys({ groq: e.target.value })}
+                   placeholder="gsk_..."
+                   className="w-full bg-black border border-gray-800 rounded-lg px-4 py-3 pr-12 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                 />
+                 <button
+                   onClick={() => setShowGroqKey(!showGroqKey)}
+                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                 >
+                   {showGroqKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                 </button>
+               </div>
+               <a
+                 href="https://console.groq.com/keys"
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 className="text-yellow-500/70 hover:text-yellow-500 text-xs mt-2 inline-block underline"
+               >
+                 Groq-Key erstellen →
+               </a>
+             </div>
+           </div>
+
+           {apiKeys.openrouter && apiKeys.groq && (
+             <div className="mt-6 flex items-center gap-2 text-green-500 bg-green-500/10 border border-green-500/20 p-4 rounded-xl">
+               <CheckCircle2 size={18} />
+               <span className="text-sm font-bold uppercase tracking-widest">Beide Schlüssel sind hinterlegt</span>
              </div>
            )}
         </section>

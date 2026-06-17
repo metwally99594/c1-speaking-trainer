@@ -1,4 +1,7 @@
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+function getGroqKey(req) {
+  const clientKey = req.headers.get('x-api-key');
+  return clientKey || process.env.GROQ_API_KEY;
+}
 console.log('[TELC Transcribe] GROQ_API_KEY present:', !!GROQ_API_KEY);
 
 export const config = {
@@ -27,6 +30,8 @@ export default async function handler(req) {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  const GROQ_API_KEY = getGroqKey(req);
 
   if (!GROQ_API_KEY) {
     console.error('[TELC Transcribe] GROQ_API_KEY not configured');
@@ -93,10 +98,11 @@ export default async function handler(req) {
 
     console.log('[TELC Transcribe] sending to Groq, model: whisper-large-v3, language: de');
 
+    const groqKey = getGroqKey(req);
     const groqRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
+        Authorization: `Bearer ${groqKey}`,
       },
       body: groqFormData,
     });
