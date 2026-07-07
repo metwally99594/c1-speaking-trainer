@@ -59,6 +59,7 @@ body {
   background: #1a1a26;
 }
 
+/* Glowing Aurora Animated Background (Comfortable & Soothing) */
 .aurora-bg {
   position: fixed;
   top: 0;
@@ -74,55 +75,61 @@ body {
 .aurora-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(70px); /* Reduced blur to concentrate color on phone screens */
-  opacity: 0.18; /* Increased opacity for clear visibility */
+  filter: blur(8vw); /* Responsive blur */
+  opacity: 0.16; /* Calming yet visible opacity */
   pointer-events: none;
 }
 
 .aurora-1 {
-  width: 320px;
-  height: 320px;
+  width: 45vw;
+  height: 45vw;
+  min-width: 280px;
+  min-height: 280px;
   background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
-  top: -5%;
-  left: -5%;
-  animation: drift-1 20s infinite alternate ease-in-out;
+  top: -10%;
+  left: -10%;
+  animation: drift-1 30s infinite alternate ease-in-out;
 }
 
 .aurora-2 {
-  width: 350px;
-  height: 350px;
+  width: 40vw;
+  height: 40vw;
+  min-width: 280px;
+  min-height: 280px;
   background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
-  bottom: -5%;
-  right: -5%;
-  animation: drift-2 24s infinite alternate ease-in-out;
+  bottom: -10%;
+  right: -10%;
+  animation: drift-2 35s infinite alternate ease-in-out;
 }
 
 .aurora-3 {
-  width: 300px;
-  height: 300px;
+  width: 35vw;
+  height: 35vw;
+  min-width: 250px;
+  min-height: 250px;
   background: radial-gradient(circle, #06b6d4 0%, transparent 70%);
-  top: 40%;
-  left: 20%;
-  animation: drift-3 22s infinite alternate ease-in-out;
+  top: 30%;
+  left: 15%;
+  animation: drift-3 32s infinite alternate ease-in-out;
 }
 
 /* Standard CSS Keyframe Animations - Placed globally to guarantee browser execution */
 @keyframes drift-1 {
   0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(100px, 60px) scale(1.08); }
-  100% { transform: translate(-40px, 120px) scale(0.92); }
+  50% { transform: translate(4vw, 3vh) scale(1.05); }
+  100% { transform: translate(-2vw, 6vh) scale(0.95); }
 }
 
 @keyframes drift-2 {
   0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(-120px, -50px) scale(0.92); }
-  100% { transform: translate(50px, -100px) scale(1.08); }
+  50% { transform: translate(-5vw, -3vh) scale(0.95); }
+  100% { transform: translate(2vw, -5vh) scale(1.05); }
 }
 
 @keyframes drift-3 {
-  0% { transform: translate(0px, 0px) scale(0.92); }
-  50% { transform: translate(-70px, 90px) scale(1.08); }
-  100% { transform: translate(90px, -70px) scale(0.92); }
+  0% { transform: translate(0px, 0px) scale(0.95); }
+  50% { transform: translate(-3vw, 4vh) scale(1.05); }
+  100% { transform: translate(4vw, -3vh) scale(0.95); }
 }
 
 @keyframes fade-in-up {
