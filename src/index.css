@@ -17,43 +17,6 @@
   --animate-float: float 8s ease-in-out infinite;
   --animate-pulse-subtle: pulse-subtle 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-shimmer: shimmer 2.5s infinite linear;
-
-  @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  @keyframes float {
-    0%, 100% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-8px);
-    }
-  }
-  @keyframes pulse-subtle {
-    0%, 100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: .9;
-      transform: scale(0.99);
-    }
-  }
-  @keyframes shimmer {
-    from {
-      background-position: -200% 0;
-    }
-    to {
-      background-position: 200% 0;
-    }
-  }
 }
 
 :root {
@@ -112,55 +75,96 @@ body {
 .aurora-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(140px);
-  opacity: 0.03;
+  filter: blur(120px);
+  opacity: 0.12; /* Slightly increased for visibility on all mobile/laptop screens */
   mix-blend-mode: screen;
   pointer-events: none;
 }
 
 .aurora-1 {
-  width: 550px;
-  height: 550px;
-  background: radial-gradient(circle, #3b82f6 0%, transparent 75%);
-  top: -15%;
-  left: -10%;
-  animation: drift-1 55s infinite alternate ease-in-out;
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, #3b82f6 0%, transparent 80%);
+  top: -10%;
+  left: -5%;
+  animation: drift-1 25s infinite alternate ease-in-out;
 }
 
 .aurora-2 {
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, #8b5cf6 0%, transparent 75%);
-  bottom: -15%;
-  right: -10%;
-  animation: drift-2 65s infinite alternate ease-in-out;
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, #8b5cf6 0%, transparent 80%);
+  bottom: -10%;
+  right: -5%;
+  animation: drift-2 28s infinite alternate ease-in-out;
 }
 
 .aurora-3 {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, #06b6d4 0%, transparent 75%);
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, #06b6d4 0%, transparent 80%);
   top: 35%;
-  left: 30%;
-  animation: drift-3 60s infinite alternate ease-in-out;
+  left: 25%;
+  animation: drift-3 26s infinite alternate ease-in-out;
 }
 
+/* Standard CSS Keyframe Animations - Placed globally to guarantee browser execution */
 @keyframes drift-1 {
   0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(60px, 40px) scale(1.03); }
-  100% { transform: translate(-20px, 90px) scale(0.97); }
+  50% { transform: translate(100px, 60px) scale(1.08); }
+  100% { transform: translate(-40px, 120px) scale(0.92); }
 }
 
 @keyframes drift-2 {
   0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(-80px, -30px) scale(0.97); }
-  100% { transform: translate(30px, -70px) scale(1.03); }
+  50% { transform: translate(-120px, -50px) scale(0.92); }
+  100% { transform: translate(50px, -100px) scale(1.08); }
 }
 
 @keyframes drift-3 {
-  0% { transform: translate(0px, 0px) scale(0.97); }
-  50% { transform: translate(-45px, 60px) scale(1.03); }
-  100% { transform: translate(60px, -45px) scale(0.97); }
+  0% { transform: translate(0px, 0px) scale(0.92); }
+  50% { transform: translate(-70px, 90px) scale(1.08); }
+  100% { transform: translate(90px, -70px) scale(0.92); }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: .9;
+    transform: scale(0.99);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
 }
 
 /* Custom UI Utilities */
