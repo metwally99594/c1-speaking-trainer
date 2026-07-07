@@ -4,6 +4,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { WordFocusModal } from '../components/WordFocusModal';
 import { Search, ArrowUpDown, Target, Trophy, AlertTriangle, BarChart3, BookOpen, RefreshCw, ChevronLeft, ChevronRight, PartyPopper } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { isWeakWord } from '../utils/weakWords';
 
 type SortKey = 'lowest-score' | 'most-attempts' | 'most-missed' | 'recently-practiced';
 
@@ -23,9 +24,7 @@ export default function WeakWords() {
   const [reviewIndex, setReviewIndex] = useState(0);
 
   const weakWords = useMemo(() => {
-    return Object.values(wordStats).filter(
-      (w) => w.lastScore < 90 || w.nearMatchCount > 0 || w.missingCount > 0 || w.incorrectCount > 0
-    );
+    return Object.values(wordStats).filter(isWeakWord);
   }, [wordStats]);
 
   const filteredWords = useMemo(() => {

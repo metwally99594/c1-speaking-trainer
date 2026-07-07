@@ -8,10 +8,24 @@ import { SpeechControls } from '../components/SpeechControls';
 import { SpeechRecognition } from '../components/SpeechRecognition';
 import { WordFocusModal } from '../components/WordFocusModal';
 import { ChevronLeft, ChevronRight, CheckCircle2, Trophy, AlertCircle } from 'lucide-react';
-import type { Sentence } from '../models/types';
+import type { Sentence, Topic } from '../models/types';
 
 interface ReviewItem extends Sentence {
   topicId: string;
+}
+
+function buildReviewQueue(topics: Topic[]): ReviewItem[] {
+  const now = Date.now();
+  const queue: ReviewItem[] = [];
+  topics.forEach(topic => {
+    topic.sentences.forEach(s => {
+      if (s.nextReviewAt && s.nextReviewAt <= now) {
+        queue.push({ ...s, topicId: topic.id });
+      }
+    });
+  });
+  queue.sort((a, b) => (a.bestScore || 0) - (b.bestScore || 0));
+  return queue;
 }
 
 export default function Review() {
@@ -20,7 +34,7 @@ export default function Review() {
   const toggleSentence = useTopicStore((state) => state.toggleSentence);
   const updateSentenceScore = useTopicStore((state) => state.updateSentenceScore);
 
-  const [reviewQueue, setReviewQueue] = useState<ReviewItem[]>([]);
+  const [reviewQueue] = useState<ReviewItem[]>(() => buildReviewQueue(topics));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [focusWord, setFocusWord] = useState<{ word: string; sentence: string; status: string } | null>(null);
@@ -32,25 +46,6 @@ export default function Review() {
     reviewQueueRef.current = reviewQueue;
     currentIndexRef.current = currentIndex;
   }, [reviewQueue, currentIndex]);
-
-  useEffect(() => {
-    const now = Date.now();
-    const queue: ReviewItem[] = [];
-
-    topics.forEach(topic => {
-      topic.sentences.forEach(s => {
-        if (s.nextReviewAt && s.nextReviewAt <= now) {
-          queue.push({ ...s, topicId: topic.id });
-        }
-      });
-    });
-
-    // Priority: lower best score first
-    queue.sort((a, b) => (a.bestScore || 0) - (b.bestScore || 0));
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setReviewQueue(queue);
-  }, [topics]);
 
   const currentItem = reviewQueue[currentIndex] || null;
 
@@ -117,7 +112,7 @@ export default function Review() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  if (reviewQueue.length === 0 && !isFinished) {
+  if ((reviewQueue.length === 0 || !currentItem) && !isFinished) {
     return (
       <div className="text-center py-20 bg-gray-950 border border-gray-900 rounded-3xl">
         <div className="bg-gray-900 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">

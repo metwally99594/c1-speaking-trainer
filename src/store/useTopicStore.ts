@@ -161,10 +161,11 @@ export const useTopicStore = create<TopicState>()(
           const updates: Record<string, Partial<WordStat>> = {};
 
           for (const w of words) {
-            if (w.status === 'correct' || w.status === 'extra') continue;
+            if (w.status === 'extra') continue;
             const normalized = normalizeWord(w.text);
             const existing = state.wordStats[normalized];
-            const score = Math.round(w.similarity * 100);
+            if (w.status === 'correct' && !existing) continue;
+            const score = w.status === 'correct' ? 100 : Math.round(w.similarity * 100);
             const newAttempts = (existing?.attempts || 0) + 1;
             const oldAvg = existing?.averageScore || 0;
             const oldAttempts = existing?.attempts || 0;
@@ -213,6 +214,8 @@ export const useTopicStore = create<TopicState>()(
         const data = {
           topics: get().topics,
           examHistory: get().examHistory,
+          wordStats: get().wordStats,
+          sentenceChunks: get().sentenceChunks,
           version: '1.0.0',
           exportedAt: Date.now(),
         };
@@ -225,6 +228,8 @@ export const useTopicStore = create<TopicState>()(
             set({
               topics: data.topics,
               examHistory: data.examHistory || [],
+              wordStats: data.wordStats || {},
+              sentenceChunks: data.sentenceChunks || {},
             });
             return true;
           }

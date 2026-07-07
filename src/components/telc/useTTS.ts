@@ -60,17 +60,17 @@ export default function useTTS(): TTSHook {
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
-      getGermanVoice().then(voice => {
-        if (voice) utterance.voice = voice;
-      });
-
       utterance.onend = speakNext;
       utterance.onerror = () => {
         console.warn('[TTS] chunk error, skipping:', chunk.slice(0, 30));
         speakNext();
       };
 
-      window.speechSynthesis.speak(utterance);
+      getGermanVoice().then(voice => {
+        if (cancelledRef.current) return;
+        if (voice) utterance.voice = voice;
+        window.speechSynthesis.speak(utterance);
+      });
     };
 
     speakNext();

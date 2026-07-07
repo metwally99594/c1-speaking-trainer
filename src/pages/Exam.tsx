@@ -15,6 +15,33 @@ const EXAMINER_QUESTIONS = [
   "Welche Auswirkungen hat dieses Thema auf die Gesellschaft?"
 ];
 
+interface SpeechRecognitionResultEventLike {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface ExamSpeechRecognition {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: ((event: Event) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+interface SpeechRecognitionWindow extends Window {
+  SpeechRecognition?: new () => ExamSpeechRecognition;
+  webkitSpeechRecognition?: new () => ExamSpeechRecognition;
+}
+
 export default function Exam() {
   const { topicId } = useParams<{ topicId: string }>();
   const navigate = useNavigate();
@@ -25,24 +52,23 @@ export default function Exam() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [questions, setQuestions] = useState<string[]>([]);
+  const [questions] = useState<string[]>(() => {
+    const shuffled = [...EXAMINER_QUESTIONS].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, 3);
+  });
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [examResult, setExamResult] = useState<ExamSession | null>(null);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<ExamSpeechRecognition | null>(null);
   const timerRef = useRef<number | null>(null);
+  const keepAliveRef = useRef(false);
+  const startNewSessionRef = useRef<() => void>(() => {});
 
-  // -----------------------------------------------------------------
-  // Random examiner questions (once on mount)
-  // -----------------------------------------------------------------
   useEffect(() => {
-    const shuffled = [...EXAMINER_QUESTIONS].sort(() => 0.5 - Math.random());
-    setQuestions(shuffled.slice(0, 3));
-
     return () => {
+      keepAliveRef.current = false;
       if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch {}
+        try { recognitionRef.current.stop(); } catch (_err) { void _err; }
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -57,13 +83,11 @@ export default function Exam() {
   // continuous: false + interimResults: false is the only config that
   // works reliably on Android Chrome / Samsung devices.
   // -----------------------------------------------------------------
-  const keepAliveRef = useRef(false);
-
   const startNewSession = useCallback(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const speechWindow = window as SpeechRecognitionWindow;
     const SpeechRecognitionAPI =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+      speechWindow.SpeechRecognition ||
+      speechWindow.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       console.error('SpeechRecognition not supported in this browser.');
       setIsRecording(false);
@@ -79,14 +103,12 @@ export default function Exam() {
       setIsRecording(true);
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event) => {
       const result = event.results[0][0].transcript;
       setTranscript((prev) => prev + result);
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         keepAliveRef.current = false;
@@ -98,7 +120,7 @@ export default function Exam() {
       setIsRecording(false);
       if (keepAliveRef.current) {
         // Restart immediately for the next utterance — accumulates transcript
-        setTimeout(startNewSession, 200);
+        setTimeout(() => startNewSessionRef.current(), 200);
       }
     };
 
@@ -106,16 +128,45 @@ export default function Exam() {
     recognition.start();
   }, []);
 
+  useEffect(() => {
+    startNewSessionRef.current = startNewSession;
+  }, [startNewSession]);
+
   const startRecording = useCallback(() => {
     keepAliveRef.current = true;
     startNewSession();
   }, [startNewSession]);
 
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback((): Promise<void> => {
     keepAliveRef.current = false;
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-    }
+    const recognition = recognitionRef.current;
+    if (!recognition) return Promise.resolve();
+
+    return new Promise<void>((resolve) => {
+      let settled = false;
+      const fallbackRef: { id?: number } = {};
+      const previousOnEnd = recognition.onend;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        if (fallbackRef.id !== undefined) clearTimeout(fallbackRef.id);
+        if (recognitionRef.current === recognition) {
+          recognitionRef.current = null;
+        }
+        setIsRecording(false);
+        resolve();
+      };
+
+      recognition.onend = (event) => {
+        try { previousOnEnd?.(event); } catch (_err) { void _err; }
+        finish();
+      };
+
+      fallbackRef.id = window.setTimeout(finish, 1000);
+
+      try { recognition.stop(); } catch (_err) { void _err; finish(); }
+    });
   }, []);
 
   // -----------------------------------------------------------------
@@ -144,24 +195,8 @@ export default function Exam() {
     startTimer();
   };
 
-  const nextPhase = () => {
-    if (phase === 'presentation') {
-      stopRecording();
-      setPhase('questions');
-      startRecording();
-    } else if (phase === 'questions') {
-      if (currentQuestionIdx < questions.length - 1) {
-        stopRecording();
-        setCurrentQuestionIdx((prev) => prev + 1);
-        startRecording();
-      } else {
-        finishExam();
-      }
-    }
-  };
-
-  const finishExam = () => {
-    stopRecording();
+  const finishExam = async () => {
+    await stopRecording();
     stopTimer();
     if (!topic) return;
 
@@ -192,6 +227,22 @@ export default function Exam() {
     setExamResult(result);
     addExamSession(result);
     setPhase('result');
+  };
+
+  const nextPhase = async () => {
+    if (phase === 'presentation') {
+      await stopRecording();
+      setPhase('questions');
+      startRecording();
+    } else if (phase === 'questions') {
+      if (currentQuestionIdx < questions.length - 1) {
+        await stopRecording();
+        setCurrentQuestionIdx((prev) => prev + 1);
+        startRecording();
+      } else {
+        await finishExam();
+      }
+    }
   };
 
   if (!topic) return <div className="text-center py-20">Topic not found</div>;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Plus, Pencil, Trash2, Check, X, RotateCcw } from 'lucide-react';
 import type { CSSProperties } from 'react';
-import type { Zitat } from '../types';
+import type { TopicPair, Zitat } from '../types';
 import { LOCAL_STORAGE_KEYS } from '../types';
 import { seedIfEmpty } from '../lib/seedStorage';
 
@@ -41,7 +41,7 @@ const btnPrimary: CSSProperties = {
 };
 
 export default function TELCAdmin({ onBack }: { onBack: () => void }) {
-  const [pairs, setPairs] = useState(() => loadFromStorage<any>(PAIRS_KEY));
+  const [pairs, setPairs] = useState<TopicPair[]>(() => loadFromStorage<TopicPair>(PAIRS_KEY));
   const [zitate, setZitate] = useState<Zitat[]>(() => loadFromStorage<Zitat>(ZITATE_KEY));
 
   // ---------- Pair form state ----------
@@ -84,7 +84,7 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
   const [editBTips, setEditBTips] = useState<string[]>([]);
   const [editBTipInput, setEditBTipInput] = useState('');
 
-  const startEditPair = (p: any) => {
+  const startEditPair = (p: TopicPair) => {
     setEditPairId(p.id); setEditVariante(p.variante);
     setEditATitle(p.topic_a.title); setEditAPrompt(p.topic_a.prompt); setEditATips([...(p.topic_a.tips || [])]); setEditATipInput('');
     setEditBTitle(p.topic_b.title); setEditBPrompt(p.topic_b.prompt); setEditBTips([...(p.topic_b.tips || [])]); setEditBTipInput('');
@@ -94,7 +94,7 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
 
   const saveEditPair = () => {
     if (!editPairId || !editVariante.trim() || !editATitle.trim() || !editAPrompt.trim() || !editBTitle.trim() || !editBPrompt.trim()) return;
-    const next = pairs.map((p: any) => p.id === editPairId ? {
+    const next = pairs.map((p) => p.id === editPairId ? {
       ...p, variante: editVariante.trim(),
       topic_a: { title: editATitle.trim(), prompt: editAPrompt.trim(), tips: editATips },
       topic_b: { title: editBTitle.trim(), prompt: editBPrompt.trim(), tips: editBTips },
@@ -216,7 +216,7 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {pairs.map((p: any) => (
+          {pairs.map((p) => (
             <div key={p.id} style={cardStyle}>
               {editPairId === p.id ? (
                 <div>
@@ -273,9 +273,9 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#3b82f6', marginBottom: 4 }}>Thema A</div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', marginBottom: 4 }}>{p.topic_a.title}</div>
                       <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>{p.topic_a.prompt}</div>
-                      {p.topic_a.tips?.length > 0 && (
+                      {(p.topic_a.tips?.length ?? 0) > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 6 }}>
-                          {p.topic_a.tips.map((t: string, i: number) => <span key={i} style={{ fontSize: 11, padding: '1px 6px', borderRadius: 3, background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>{t}</span>)}
+                          {(p.topic_a.tips ?? []).map((t, i) => <span key={i} style={{ fontSize: 11, padding: '1px 6px', borderRadius: 3, background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>{t}</span>)}
                         </div>
                       )}
                     </div>
@@ -283,9 +283,9 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#22c55e', marginBottom: 4 }}>Thema B</div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', marginBottom: 4 }}>{p.topic_b.title}</div>
                       <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>{p.topic_b.prompt}</div>
-                      {p.topic_b.tips?.length > 0 && (
+                      {(p.topic_b.tips?.length ?? 0) > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 6 }}>
-                          {p.topic_b.tips.map((t: string, i: number) => <span key={i} style={{ fontSize: 11, padding: '1px 6px', borderRadius: 3, background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>{t}</span>)}
+                          {(p.topic_b.tips ?? []).map((t, i) => <span key={i} style={{ fontSize: 11, padding: '1px 6px', borderRadius: 3, background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>{t}</span>)}
                         </div>
                       )}
                     </div>
@@ -294,7 +294,7 @@ export default function TELCAdmin({ onBack }: { onBack: () => void }) {
                     <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 13, color: '#ef4444' }}>Wirklich löschen?</span>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => { const next = pairs.filter((x: any) => x.id !== p.id); saveToStorage(PAIRS_KEY, next); setPairs(next); setDeletePairId(null); }} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Ja</button>
+                        <button onClick={() => { const next = pairs.filter((x) => x.id !== p.id); saveToStorage(PAIRS_KEY, next); setPairs(next); setDeletePairId(null); }} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Ja</button>
                         <button onClick={() => setDeletePairId(null)} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(100,116,139,0.2)', background: 'transparent', color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>Nein</button>
                       </div>
                     </div>

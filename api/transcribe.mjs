@@ -2,7 +2,7 @@ function getGroqKey(req) {
   const clientKey = req.headers.get('x-api-key');
   return clientKey || process.env.GROQ_API_KEY;
 }
-console.log('[TELC Transcribe] GROQ_API_KEY present:', !!GROQ_API_KEY);
+console.log('[TELC Transcribe] GROQ_API_KEY present:', !!process.env.GROQ_API_KEY);
 
 export const config = {
   runtime: 'edge',
@@ -14,7 +14,6 @@ export default async function handler(req) {
     return new Response(
       JSON.stringify({
         ok: true,
-        keyConfigured: !!GROQ_API_KEY,
         runtime: 'edge',
       }),
       {

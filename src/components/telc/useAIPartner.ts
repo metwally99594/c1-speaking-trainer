@@ -340,10 +340,12 @@ WICHTIG:
     let parsed = tryParse(stripped);
 
     if (!parsed) {
-      const cleaned = stripped
-        .replace(/[\x00-\x1F]/g, ' ')
-        .replace(/\n/g, ' ')
-        .trim();
+      let cleaned = '';
+      for (let i = 0; i < stripped.length; i++) {
+        const char = stripped[i];
+        cleaned += char.charCodeAt(0) < 32 ? ' ' : char;
+      }
+      cleaned = cleaned.trim();
       parsed = tryParse(cleaned);
       if (parsed) {
         console.warn('[TELC AI] JSON parsed after cleanup');

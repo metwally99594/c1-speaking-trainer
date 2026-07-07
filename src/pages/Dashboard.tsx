@@ -4,14 +4,13 @@ import { TopicCard } from '../components/ui/TopicCard';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Plus, RefreshCw, BookOpen, CheckCircle2, GraduationCap, AlertTriangle, PartyPopper } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { isWeakWord } from '../utils/weakWords';
 
 export default function Dashboard() {
   const topics = useTopicStore((state) => state.topics);
   const wordStats = useTopicStore((state) => state.wordStats);
   
-  const weakWords = Object.values(wordStats).filter(
-    (w) => w.lastScore < 90 || w.nearMatchCount > 0 || w.missingCount > 0 || w.incorrectCount > 0
-  );
+  const weakWords = Object.values(wordStats).filter(isWeakWord);
   const worstWord = weakWords.length > 0
     ? weakWords.reduce((a, b) => (a.averageScore || 0) < (b.averageScore || 0) ? a : b)
     : null;

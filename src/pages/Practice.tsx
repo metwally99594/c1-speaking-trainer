@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -9,6 +9,18 @@ import { SpeechRecognition } from '../components/SpeechRecognition';
 import { WordFocusModal } from '../components/WordFocusModal';
 import { SplitSentenceModal } from '../components/SplitSentenceModal';
 import { ChevronLeft, ChevronRight, CheckCircle2, Trophy, Scissors } from 'lucide-react';
+import type { Sentence, Topic } from '../models/types';
+
+function buildPracticeSentences(topic: Topic | undefined, remainingMode: boolean): Sentence[] {
+  if (!topic) return [];
+  return remainingMode ? topic.sentences.filter(s => !s.isCompleted) : topic.sentences;
+}
+
+function getInitialIndex(sentences: Sentence[], sentenceId: string | null): number {
+  if (!sentenceId) return 0;
+  const idx = sentences.findIndex(s => s.id === sentenceId);
+  return idx >= 0 ? idx : 0;
+}
 
 export default function Practice() {
   const { topicId } = useParams<{ topicId: string }>();
@@ -25,24 +37,23 @@ export default function Practice() {
   const sentenceIdParam = searchParams.get('sentenceId');
   const [completedInSession, setCompletedInSession] = useState(0);
 
-  const hasJumpedToSentence = useRef(false);
-
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [sessionSentences, setSessionSentences] = useState<Sentence[]>(() => buildPracticeSentences(topic, remainingMode));
+  const [currentIndex, setCurrentIndex] = useState(() => getInitialIndex(buildPracticeSentences(topic, remainingMode), sentenceIdParam));
   const [focusWord, setFocusWord] = useState<{ word: string; sentence: string; status: string } | null>(null);
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [chunkMode, setChunkMode] = useState(false);
   const [chunkIndex, setChunkIndex] = useState(0);
 
   const allSentences = topic?.sentences || [];
-  const sentences = remainingMode
-    ? allSentences.filter(s => !s.isCompleted)
-    : allSentences;
-  const currentSentence = sentences[currentIndex];
+  const sessionSentence = sessionSentences[currentIndex];
+  const currentSentence = sessionSentence
+    ? allSentences.find(s => s.id === sessionSentence.id) ?? sessionSentence
+    : undefined;
   const chunks = currentSentence ? (sentenceChunks[currentSentence.id] || []) : [];
   const currentText = chunkMode && chunks.length > 0
     ? chunks[chunkIndex]?.text ?? ''
     : currentSentence?.text ?? '';
-  const isComplete = remainingMode && sentences.length > 0 && completedInSession >= sentences.length;
+  const isComplete = remainingMode && sessionSentences.length > 0 && completedInSession >= sessionSentences.length;
 
   const handleNext = useCallback(() => {
     if (chunkMode && chunks.length > 0) {
@@ -52,15 +63,15 @@ export default function Practice() {
       }
       setChunkMode(false);
       setChunkIndex(0);
-      if (currentIndex < sentences.length - 1) {
+      if (currentIndex < sessionSentences.length - 1) {
         setCurrentIndex((prev) => prev + 1);
       }
       return;
     }
-    if (currentIndex < sentences.length - 1) {
+    if (currentIndex < sessionSentences.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     }
-  }, [chunkMode, chunks.length, chunkIndex, currentIndex, sentences.length]);
+  }, [chunkMode, chunks.length, chunkIndex, currentIndex, sessionSentences.length]);
 
   const handlePrevious = useCallback(() => {
     if (chunkMode && chunks.length > 0) {
@@ -83,11 +94,11 @@ export default function Practice() {
         toggleSentence(topicId, currentSentence.id);
         if (remainingMode) setCompletedInSession((c) => c + 1);
       }
-      if (currentIndex < sentences.length - 1) {
+      if (currentIndex < sessionSentences.length - 1) {
         handleNext();
       }
     }
-  }, [topicId, currentSentence, toggleSentence, currentIndex, handleNext, sentences.length, remainingMode]);
+  }, [topicId, currentSentence, toggleSentence, currentIndex, handleNext, sessionSentences.length, remainingMode]);
 
   const handleSpeechResult = (score: number) => {
     if (topicId && currentSentence) {
@@ -109,17 +120,16 @@ export default function Practice() {
     setChunkIndex(0);
   };
 
-  // Jump to sentence specified by sentenceId query param (once on initial load)
   useEffect(() => {
-    if (sentenceIdParam && sentences.length > 0 && !hasJumpedToSentence.current) {
-      const idx = sentences.findIndex(s => s.id === sentenceIdParam);
-      if (idx >= 0) {
-        hasJumpedToSentence.current = true;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCurrentIndex(idx);
-      }
-    }
-  }, [sentenceIdParam, sentences]);
+    if (sessionSentences.length > 0 || !topic) return;
+    const timeout = window.setTimeout(() => {
+      const initial = buildPracticeSentences(topic, remainingMode);
+      if (initial.length === 0) return;
+      setSessionSentences(initial);
+      setCurrentIndex(getInitialIndex(initial, sentenceIdParam));
+    }, 0);
+    return () => clearTimeout(timeout);
+  }, [topic, remainingMode, sentenceIdParam, sessionSentences.length]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -142,7 +152,7 @@ export default function Practice() {
     );
   }
 
-  if (sentences.length === 0) {
+  if (sessionSentences.length === 0 || !currentSentence) {
     const message = remainingMode
       ? 'All sentences in this topic have been completed.'
       : 'No sentences in this topic. Add content to this topic first.';
@@ -169,7 +179,7 @@ export default function Practice() {
               {remainingMode ? 'Remaining Session' : 'Session Progress'}
             </span>
             <span className="text-2xl font-black text-white">
-              {currentIndex + 1} <span className="text-gray-600 font-normal">of</span> {sentences.length}
+              {currentIndex + 1} <span className="text-gray-600 font-normal">of</span> {sessionSentences.length}
               {chunkMode && chunks.length > 0 && (
                 <span className="text-base text-gray-500"> — Chunk {chunkIndex + 1} of {chunks.length}</span>
               )}
@@ -180,7 +190,7 @@ export default function Practice() {
             <span className="text-2xl font-black text-blue-500">{progress}%</span>
           </div>
         </div>
-        <ProgressBar progress={remainingMode ? Math.round((completedInSession / sentences.length) * 100) : progress} className="h-2" />
+        <ProgressBar progress={remainingMode ? Math.round((completedInSession / sessionSentences.length) * 100) : progress} className="h-2" />
       </div>
 
       {/* Mode Toggle + Split Button */}
@@ -339,7 +349,7 @@ export default function Practice() {
           
           <button
             onClick={handleNext}
-            disabled={currentIndex === sentences.length - 1 && !(chunkMode && chunkIndex < chunks.length - 1)}
+            disabled={currentIndex === sessionSentences.length - 1 && !(chunkMode && chunkIndex < chunks.length - 1)}
             className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-gray-800 bg-gray-950 text-white font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors"
           >
             <span>Next</span>

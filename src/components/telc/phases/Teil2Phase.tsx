@@ -81,7 +81,7 @@ export default function Teil2Phase({
     };
     respond();
     return () => { cancelled = true; };
-  }, [transcript, processing, fallbackMode, discussionDone]);
+  }, [transcript, processing, fallbackMode, discussionDone, addTurn, ai, zitat]);
 
   // Fallback: candidate types instead of recording
   const handleFallbackSend = useCallback(() => {
