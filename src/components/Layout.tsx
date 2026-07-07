@@ -16,7 +16,7 @@ export function Layout({ children }: LayoutProps) {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500 selection:text-white flex flex-col font-sans relative">
+    <div className="min-h-screen bg-transparent text-slate-100 selection:bg-blue-500 selection:text-white flex flex-col font-sans relative">
       {/* Soothing Animated Background */}
       <div className="aurora-bg">
         <div className="aurora-blob aurora-1"></div>
