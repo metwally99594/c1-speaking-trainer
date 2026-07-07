@@ -4,16 +4,20 @@ import { TopicCard } from '../components/ui/TopicCard';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Plus, RefreshCw, BookOpen, CheckCircle2, GraduationCap, AlertTriangle, PartyPopper } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { cn } from '../utils/cn';
 import { isWeakWord } from '../utils/weakWords';
 
 export default function Dashboard() {
   const topics = useTopicStore((state) => state.topics);
   const wordStats = useTopicStore((state) => state.wordStats);
+  const currentUser = useTopicStore((state) => state.currentUser);
   
   const weakWords = Object.values(wordStats).filter(isWeakWord);
+  
   const worstWord = weakWords.length > 0
     ? weakWords.reduce((a, b) => (a.averageScore || 0) < (b.averageScore || 0) ? a : b)
     : null;
+    
   const avgWeakScore = weakWords.length > 0
     ? Math.round(weakWords.reduce((s, w) => s + (w.averageScore || 0), 0) / weakWords.length)
     : 0;
@@ -25,32 +29,36 @@ export default function Dashboard() {
     needReview: topics.reduce((acc, t) => acc + t.sentences.filter(s => s.nextReviewAt && s.nextReviewAt <= Date.now()).length, 0),
   };
 
+  const welcomeMessage = currentUser 
+    ? `Willkommen zurück, ${currentUser.name}! 👋` 
+    : 'Speaking Trainer Dashboard';
+
   return (
-    <div>
-      <PageHeader title="Speaking Trainer Dashboard">
+    <div className="space-y-8">
+      <PageHeader title={welcomeMessage}>
         {topics.length > 0 && (
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             {stats.needReview > 0 && (
               <Link 
                 to="/review"
-                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg shadow-orange-900/20"
+                className="flex items-center gap-2 bg-orange-600/10 hover:bg-orange-600/20 text-orange-400 border border-orange-500/20 px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
               >
-                <RefreshCw size={18} />
+                <RefreshCw size={14} className="animate-spin" style={{ animationDuration: '4s' }} />
                 <span>Review ({stats.needReview})</span>
               </Link>
             )}
             <Link 
               to="/exam-history"
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg shadow-purple-900/20"
+              className="flex items-center gap-2 bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 border border-purple-500/20 px-4 py-2.5 rounded-xl text-xs font-bold transition-all"
             >
-              <GraduationCap size={18} />
-              <span>History</span>
+              <GraduationCap size={14} />
+              <span>Historie</span>
             </Link>
             <Link 
               to="/topic/new"
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg shadow-blue-900/20"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-900/20"
             >
-              <Plus size={18} />
+              <Plus size={14} />
               <span>Add Topic</span>
             </Link>
           </div>
@@ -58,17 +66,25 @@ export default function Dashboard() {
       </PageHeader>
 
       {/* Stats Widgets */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Topics', value: stats.totalTopics, icon: <BookOpen size={20} />, color: 'text-blue-500' },
-          { label: 'Sentences', value: stats.totalSentences, icon: <Plus size={20} />, color: 'text-purple-500' },
-          { label: 'Mastered', value: stats.mastered, icon: <CheckCircle2 size={20} />, color: 'text-green-500' },
-          { label: 'Need Review', value: stats.needReview, icon: <RefreshCw size={20} />, color: 'text-orange-500' },
+          { label: 'Themen', value: stats.totalTopics, icon: <BookOpen size={20} />, color: 'text-blue-400', glow: 'neon-border-blue' },
+          { label: 'Sätze', value: stats.totalSentences, icon: <Plus size={20} />, color: 'text-purple-400', glow: 'neon-border-purple' },
+          { label: 'Meisterhaft', value: stats.mastered, icon: <CheckCircle2 size={20} />, color: 'text-green-400', glow: 'neon-border-green' },
+          { label: 'Wiederholen', value: stats.needReview, icon: <RefreshCw size={20} />, color: 'text-orange-400', glow: 'neon-border-orange' },
         ].map((stat, i) => (
-          <div key={i} className="bg-gray-900 border border-gray-800 p-6 rounded-2xl shadow-lg">
-            <div className={`mb-2 ${stat.color}`}>{stat.icon}</div>
-            <div className="text-2xl font-black text-white">{stat.value}</div>
-            <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">{stat.label}</div>
+          <div 
+            key={i} 
+            className={cn(
+              "glass-panel p-6 rounded-2xl shadow-md transition-all duration-300 flex flex-col justify-between min-h-[120px]",
+              stat.glow
+            )}
+          >
+            <div className={`mb-3 ${stat.color}`}>{stat.icon}</div>
+            <div>
+              <div className="text-3xl font-black text-white">{stat.value}</div>
+              <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{stat.label}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -76,47 +92,59 @@ export default function Dashboard() {
       {/* Weak Words Widget */}
       <Link
         to="/words"
-        className="block bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-lg mb-10 hover:border-orange-500/30 transition-all group"
+        className="block glass-panel rounded-3xl p-6 shadow-md border border-slate-900 hover:border-orange-500/20 transition-all duration-300 group relative overflow-hidden"
       >
-        <div className="flex items-center justify-between">
+        <div className="absolute right-0 top-0 w-32 h-32 bg-orange-500/5 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className="text-orange-500">
+            <div className="bg-orange-500/10 p-4 rounded-2xl border border-orange-500/20 text-orange-400">
               {weakWords.length === 0 ? <PartyPopper size={24} /> : <AlertTriangle size={24} />}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">Weak Words</h3>
-              <p className="text-sm text-gray-500">
+              <h3 className="text-lg font-extrabold text-white group-hover:text-orange-400 transition-colors">Vokabeln im Fokus (Weak Words)</h3>
+              <p className="text-sm text-slate-400 mt-1">
                 {weakWords.length === 0
-                  ? 'Excellent! No weak words detected.'
+                  ? 'Hervorragend! Keine schwierigen Wörter gefunden.'
                   : worstWord
-                    ? `Worst: "${worstWord.word}" (${worstWord.averageScore || 0}%)`
-                    : `${weakWords.length} word${weakWords.length !== 1 ? 's' : ''} need attention`}
+                    ? `Schwierigstes Wort: "${worstWord.word}" (${worstWord.averageScore || 0}%)`
+                    : `${weakWords.length} Wort${weakWords.length !== 1 ? 'e' : ''} benötigt Aufmerksamkeit`}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-2xl font-black text-white">{weakWords.length}</p>
-              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Weak</p>
-            </div>
-            {weakWords.length > 0 && (
+          <div className="flex items-center gap-6 self-stretch md:self-auto justify-between md:justify-end border-t border-slate-900 md:border-none pt-4 md:pt-0">
+            <div className="flex gap-6">
               <div className="text-right">
-                <p className="text-2xl font-black text-orange-400">{avgWeakScore}%</p>
-                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Avg Score</p>
+                <p className="text-2xl font-black text-white">{weakWords.length}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Wörter</p>
               </div>
-            )}
-            <span className="text-sm font-bold text-orange-400 group-hover:underline">Review Now →</span>
+              {weakWords.length > 0 && (
+                <div className="text-right">
+                  <p className="text-2xl font-black text-orange-400">{avgWeakScore}%</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Durchschnitt</p>
+                </div>
+              )}
+            </div>
+            <span className="text-xs font-black uppercase tracking-widest text-orange-400 group-hover:underline self-center bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-xl">
+              Prüfen →
+            </span>
           </div>
         </div>
       </Link>
 
+      {/* Topics List */}
       {topics.length === 0 ? (
-        <EmptyState message="No topics added yet" />
+        <EmptyState message="Noch keine Themen hinzugefügt" />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {topics.map((topic) => (
-            <TopicCard key={topic.id} topic={topic} />
-          ))}
+        <div className="space-y-4">
+          <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <BookOpen size={18} className="text-blue-500" />
+            Ihre Themenübersicht
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {topics.map((topic) => (
+              <TopicCard key={topic.id} topic={topic} />
+            ))}
+          </div>
         </div>
       )}
     </div>

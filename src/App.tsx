@@ -11,27 +11,42 @@ import WeakWords from './pages/WeakWords';
 import Settings from './pages/Settings';
 import GroqSttTest from './pages/GroqSttTest';
 import TELCApp from './components/telc/TELCModule';
+import Login from './pages/Login';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/topic/new" element={<AddTopic />} />
-            <Route path="/topic/:id" element={<TopicDetails />} />
-            <Route path="/practice/:topicId" element={<Practice />} />
-            <Route path="/review" element={<Review />} />
-            <Route path="/exam/:topicId" element={<Exam />} />
-            <Route path="/exam-history" element={<ExamHistory />} />
-            <Route path="/words" element={<WeakWords />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/groq-stt-test" element={<GroqSttTest />} />
-            <Route path="/telc" element={<TELCApp />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          {/* Public Route */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Protected Routes sharing Layout */}
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/topic/new" element={<AddTopic />} />
+                    <Route path="/topic/:id" element={<TopicDetails />} />
+                    <Route path="/practice/:topicId" element={<Practice />} />
+                    <Route path="/review" element={<Review />} />
+                    <Route path="/exam/:topicId" element={<Exam />} />
+                    <Route path="/exam-history" element={<ExamHistory />} />
+                    <Route path="/words" element={<WeakWords />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="/groq-stt-test" element={<GroqSttTest />} />
+                    <Route path="/telc" element={<TELCApp />} />
+                  </Routes>
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </ErrorBoundary>
   );

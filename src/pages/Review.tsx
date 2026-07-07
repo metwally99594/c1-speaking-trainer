@@ -144,72 +144,70 @@ export default function Review() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto pb-20">
-      <PageHeader title="Smart Review Session" showBack />
+    <div className="max-w-3xl mx-auto pb-24">
+      <PageHeader title="Smart-Review Sitzung" showBack />
 
-      <div className="bg-orange-600/10 border border-orange-500/20 rounded-2xl p-4 mb-8 flex items-center gap-3">
-        <AlertCircle className="text-orange-500" size={20} />
-        <p className="text-sm font-medium text-orange-200">
-          This sentence was difficult for you previously. Let's master it!
+      <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4.5 mb-8 flex items-center gap-3 animate-pulse-subtle">
+        <AlertCircle className="text-orange-400 shrink-0" size={18} />
+        <p className="text-xs font-semibold text-orange-200">
+          Dieser Satz fiel Ihnen zuvor schwer. Lassen Sie ihn uns meistern!
         </p>
       </div>
 
-      <div className="bg-gray-950 border border-gray-900 rounded-2xl p-6 mb-8 shadow-xl">
+      <div className="glass-panel p-6 rounded-3xl mb-8 shadow-xl border border-slate-900">
         <div className="flex justify-between items-end mb-3">
           <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-500 block mb-1">Queue Progress</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Fortschritt</span>
             <span className="text-2xl font-black text-white">
-              {currentIndex + 1} <span className="text-gray-600 font-normal">of</span> {reviewQueue.length}
+              {currentIndex + 1} <span className="text-slate-500 font-normal">von</span> {reviewQueue.length}
             </span>
           </div>
           <div className="text-right">
-             <span className="text-xs font-bold uppercase tracking-widest text-gray-500 block mb-1">Last Score</span>
-             <span className="text-2xl font-black text-orange-500">{currentItem.lastScore || 0}%</span>
+             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Letztes Ergebnis</span>
+             <span className="text-2xl font-black text-orange-400">{currentItem.lastScore || 0}%</span>
           </div>
         </div>
-        <ProgressBar progress={((currentIndex + 1) / reviewQueue.length) * 100} className="h-2" />
+        <ProgressBar progress={((currentIndex + 1) / reviewQueue.length) * 100} className="h-2 rounded-full" />
       </div>
 
-      <div className="relative group">
-        <div className="absolute -inset-1 bg-gradient-to-r from-orange-600 to-red-600 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
-        <div className="relative bg-black border border-gray-800 rounded-3xl p-10 min-h-[300px] flex flex-col justify-between shadow-2xl">
-          <div className="space-y-4">
-             <div className="flex justify-between items-start">
-               <div className="inline-block bg-orange-600/10 text-orange-400 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border border-orange-500/20">
-                 Mastery Level: {currentItem.masteryLevel || 0}/5
+      <div className="relative group mb-8">
+        <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-[32px] blur opacity-10 group-hover:opacity-15 transition duration-1000"></div>
+        <div className="relative glass-panel rounded-[32px] p-10 min-h-[280px] flex flex-col justify-between shadow-2xl border border-slate-800/80">
+          <div className="space-y-6">
+             <div className="flex justify-between items-center">
+               <div className="inline-block bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full border border-orange-500/20">
+                 Lernstufe: {currentItem.masteryLevel || 0}/5
                </div>
                <div className="text-right">
-                 <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Attempts</p>
+                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Versuche</p>
                  <p className="text-sm font-black text-white">{currentItem.attempts}</p>
                </div>
              </div>
-             <p className="text-3xl md:text-4xl font-bold text-white leading-tight">
+             <p className="text-2xl md:text-3xl font-bold text-white leading-snug">
                {currentItem.text}
              </p>
           </div>
 
-          <div className="mt-12 flex flex-col sm:flex-row gap-4">
+          <div className="mt-10">
              <button
                onClick={handleMarkAsMastered}
                className={cn(
-                 "flex-1 flex items-center justify-center gap-2 py-5 rounded-2xl font-bold transition-all transform active:scale-[0.98]",
+                 "w-full flex items-center justify-center gap-2 py-4.5 rounded-2xl font-bold transition-all transform active:scale-[0.98] text-sm",
                  currentItem.isCompleted
-                   ? "bg-green-600/10 border border-green-500/30 text-green-400"
-                   : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
+                   ? "bg-green-500/10 border border-green-500/20 text-green-400"
+                   : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 hover:shadow-blue-500/30"
                )}
              >
-               <CheckCircle2 size={24} />
-               <span>{currentItem.isCompleted ? 'Mastered!' : 'Mark as Mastered'}</span>
+               <CheckCircle2 size={18} />
+               <span>{currentItem.isCompleted ? 'Meisterhaft gelernt!' : 'Als gelernt markieren'}</span>
              </button>
           </div>
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="space-y-6">
         <SpeechControls text={currentItem.text} />
-      </div>
 
-      <div className="mt-8">
         <SpeechRecognition 
           originalText={currentItem.text} 
           onResult={handleSpeechResult}
@@ -227,23 +225,24 @@ export default function Review() {
         />
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-gray-900 p-6 z-50">
+      {/* Fixed Bottom Navigation Controls */}
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-950/80 backdrop-blur-xl border-t border-slate-900/60 p-5 z-40">
         <div className="max-w-3xl mx-auto flex gap-4">
           <button
             onClick={handlePrevious}
             disabled={currentIndex === 0}
-            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-gray-800 bg-gray-950 text-white font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-800 bg-slate-900/40 text-slate-300 font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-slate-900 transition-all text-sm"
           >
-            <ChevronLeft size={20} />
-            <span>Previous</span>
+            <ChevronLeft size={16} />
+            <span>Zurück</span>
           </button>
           
           <button
             onClick={handleNext}
-            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-gray-800 bg-gray-950 text-white font-bold hover:bg-gray-900 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-850 bg-slate-900/40 text-slate-300 font-bold hover:bg-slate-900 transition-all text-sm"
           >
-            <span>{currentIndex === reviewQueue.length - 1 ? 'Finish' : 'Next'}</span>
-            <ChevronRight size={20} />
+            <span>{currentIndex === reviewQueue.length - 1 ? 'Beenden' : 'Weiter'}</span>
+            <ChevronRight size={16} />
           </button>
         </div>
       </div>

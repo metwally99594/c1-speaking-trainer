@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, ApiKeys } from '../models/types';
+import type { Topic, Sentence, ExamSession, VoiceSettings, WordStat, ChunkData, ApiKeys, User } from '../models/types';
 import type { ComparedWord } from '../utils/accuracyEngine';
 
 interface TopicState {
@@ -10,6 +10,9 @@ interface TopicState {
   wordStats: Record<string, WordStat>;
   sentenceChunks: Record<string, ChunkData[]>;
   apiKeys: ApiKeys;
+  currentUser: User | null;
+  users: Record<string, string>; // email -> password
+  userProfiles: Record<string, User>; // email -> User
   addTopic: (topic: Omit<Topic, 'id' | 'createdAt' | 'sentences'>, sentences: Sentence[]) => void;
   deleteTopic: (id: string) => void;
   toggleSentence: (topicId: string, sentenceId: string) => void;
@@ -26,7 +29,12 @@ interface TopicState {
   exportData: () => string;
   importData: (json: string) => boolean;
   resetAll: () => void;
+  registerUser: (name: string, email: string, password: string) => { success: boolean; error?: string };
+  loginUser: (email: string, password: string) => { success: boolean; error?: string };
+  logoutUser: () => void;
+  updateUserProfile: (name: string, avatar?: string) => void;
 }
+
 
 const normalizeWord = (text: string) =>
   text.toLowerCase().replace(/[.,!?;:]/g, '').trim();
@@ -45,6 +53,9 @@ export const useTopicStore = create<TopicState>()(
       wordStats: {},
       sentenceChunks: {},
       apiKeys: { openrouter: '', groq: '' },
+      currentUser: null,
+      users: {},
+      userProfiles: {},
 
       addTopic: (topicData, sentences) => {
         const newTopic: Topic = {
@@ -241,6 +252,49 @@ export const useTopicStore = create<TopicState>()(
       },
       resetAll: () => {
         set({ topics: [], examHistory: [], wordStats: {} });
+      },
+      registerUser: (name, email, password) => {
+        const normalizedEmail = email.toLowerCase().trim();
+        const existing = get().users[normalizedEmail];
+        if (existing) {
+          return { success: false, error: 'Diese E-Mail-Adresse wird bereits verwendet.' };
+        }
+        const newUser: User = {
+          id: crypto.randomUUID(),
+          name: name.trim(),
+          email: normalizedEmail,
+          avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
+          createdAt: Date.now(),
+        };
+        set((state) => ({
+          users: { ...state.users, [normalizedEmail]: password },
+          userProfiles: { ...state.userProfiles, [normalizedEmail]: newUser },
+          currentUser: newUser,
+        }));
+        return { success: true };
+      },
+      loginUser: (email, password) => {
+        const normalizedEmail = email.toLowerCase().trim();
+        const savedPassword = get().users[normalizedEmail];
+        if (!savedPassword || savedPassword !== password) {
+          return { success: false, error: 'Ungültige E-Mail-Adresse oder Passwort.' };
+        }
+        const profile = get().userProfiles[normalizedEmail];
+        set({ currentUser: profile });
+        return { success: true };
+      },
+      logoutUser: () => {
+        set({ currentUser: null });
+      },
+      updateUserProfile: (name, avatar) => {
+        const user = get().currentUser;
+        if (!user) return;
+        const updatedUser = { ...user, name: name.trim(), avatar };
+        const normalizedEmail = user.email.toLowerCase();
+        set((state) => ({
+          currentUser: updatedUser,
+          userProfiles: { ...state.userProfiles, [normalizedEmail]: updatedUser },
+        }));
       },
     }),
     {

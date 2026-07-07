@@ -168,115 +168,117 @@ export default function Practice() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto pb-20">
-      <PageHeader title={`Practice: ${topic.title}`} showBack />
+    <div className="max-w-3xl mx-auto pb-24">
+      <PageHeader title={`Praxis: ${topic.title}`} showBack />
 
       {/* Progress Section */}
-      <div className="bg-gray-950 border border-gray-900 rounded-2xl p-6 mb-8 shadow-xl">
+      <div className="glass-panel p-6 rounded-3xl mb-8 shadow-xl border border-slate-900">
         <div className="flex justify-between items-end mb-3">
           <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-500 block mb-1">
-              {remainingMode ? 'Remaining Session' : 'Session Progress'}
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">
+              {remainingMode ? 'Verbleibende Sätze' : 'Sitzungsfortschritt'}
             </span>
             <span className="text-2xl font-black text-white">
-              {currentIndex + 1} <span className="text-gray-600 font-normal">of</span> {sessionSentences.length}
+              {currentIndex + 1} <span className="text-slate-500 font-normal">von</span> {sessionSentences.length}
               {chunkMode && chunks.length > 0 && (
-                <span className="text-base text-gray-500"> — Chunk {chunkIndex + 1} of {chunks.length}</span>
+                <span className="text-sm text-slate-400"> — Chunk {chunkIndex + 1} von {chunks.length}</span>
               )}
             </span>
           </div>
           <div className="text-right">
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-500 block mb-1">Mastery</span>
-            <span className="text-2xl font-black text-blue-500">{progress}%</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Mastery</span>
+            <span className="text-2xl font-black text-blue-400">{progress}%</span>
           </div>
         </div>
-        <ProgressBar progress={remainingMode ? Math.round((completedInSession / sessionSentences.length) * 100) : progress} className="h-2" />
+        <ProgressBar progress={remainingMode ? Math.round((completedInSession / sessionSentences.length) * 100) : progress} className="h-2 rounded-full" />
       </div>
 
       {/* Mode Toggle + Split Button */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex gap-2 bg-slate-950/40 p-1 rounded-2xl border border-slate-900">
           <button
             onClick={() => { setChunkMode(false); setChunkIndex(0); }}
             className={cn(
               "px-4 py-2 rounded-xl text-xs font-bold transition-all",
-              !chunkMode ? "bg-blue-600 text-white" : "bg-gray-900 text-gray-500 hover:text-white border border-gray-800"
+              !chunkMode 
+                ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" 
+                : "text-slate-500 hover:text-slate-300"
             )}
           >
-            Full Sentence
+            Ganzer Satz
           </button>
           <button
             onClick={() => { if (chunks.length > 0) { setChunkMode(true); setChunkIndex(0); } }}
             className={cn(
               "px-4 py-2 rounded-xl text-xs font-bold transition-all",
-              chunkMode ? "bg-blue-600 text-white" : "bg-gray-900 text-gray-500 hover:text-white border border-gray-800",
+              chunkMode 
+                ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" 
+                : "text-slate-500 hover:text-slate-300",
               chunks.length === 0 && "opacity-40 cursor-not-allowed"
             )}
             disabled={chunks.length === 0}
           >
-            Chunk Mode
+            Chunk-Modus
           </button>
         </div>
         <button
           onClick={() => setShowSplitModal(true)}
-          className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all"
+          className="flex items-center gap-2 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all"
         >
-          <Scissors size={14} />
-          Split Sentence
+          <Scissors size={12} />
+          Satz aufteilen
         </button>
       </div>
 
       {/* Main Content Card */}
-      <div className="relative group">
-        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-3xl blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
-        <div className="relative bg-black border border-gray-800 rounded-3xl p-10 min-h-[300px] flex flex-col justify-between shadow-2xl">
-          <div className="space-y-4">
-             <div className="flex justify-between items-start">
-               <div className="inline-block bg-blue-600/10 text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border border-blue-500/20">
-                 {chunkMode ? `Chunk ${chunkIndex + 1}` : `Sentence ${currentSentence.order}`}
+      <div className="relative group mb-8">
+        <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-[32px] blur opacity-10 group-hover:opacity-15 transition duration-1000"></div>
+        <div className="relative glass-panel rounded-[32px] p-10 min-h-[280px] flex flex-col justify-between shadow-2xl border border-slate-800/80">
+          <div className="space-y-6">
+             <div className="flex justify-between items-center">
+               <div className="inline-block bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full border border-blue-500/20">
+                 {chunkMode ? `Abschnitt ${chunkIndex + 1}` : `Satz ${currentSentence.order}`}
                </div>
                {currentSentence.attempts ? (
                  <div className="flex gap-4">
                    <div className="text-right">
-                     <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Best</p>
-                     <p className="text-sm font-black text-green-500">{currentSentence.bestScore}%</p>
+                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Bestes</p>
+                     <p className="text-sm font-black text-green-400">{currentSentence.bestScore}%</p>
                    </div>
                    <div className="text-right">
-                     <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Attempts</p>
+                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Versuche</p>
                      <p className="text-sm font-black text-white">{currentSentence.attempts}</p>
                    </div>
                  </div>
                ) : null}
              </div>
-             <p className="text-3xl md:text-4xl font-bold text-white leading-tight">
+             <p className="text-2xl md:text-3xl font-bold text-white leading-snug">
                {currentText}
              </p>
           </div>
 
-          <div className="mt-12 flex flex-col sm:flex-row gap-4">
+          <div className="mt-10">
              <button
                onClick={handleMarkAsMastered}
                className={cn(
-                 "flex-1 flex items-center justify-center gap-2 py-5 rounded-2xl font-bold transition-all transform active:scale-[0.98]",
+                 "w-full flex items-center justify-center gap-2 py-4.5 rounded-2xl font-bold transition-all transform active:scale-[0.98] text-sm",
                  currentSentence.isCompleted
-                   ? "bg-green-600/10 border border-green-500/30 text-green-400"
-                   : "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
+                   ? "bg-green-500/10 border border-green-500/20 text-green-400"
+                   : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20 hover:shadow-blue-500/30"
                )}
              >
-               <CheckCircle2 size={24} />
-               <span>{currentSentence.isCompleted ? 'Mastered!' : 'Mark as Mastered'}</span>
+               <CheckCircle2 size={18} />
+               <span>{currentSentence.isCompleted ? 'Meisterhaft gelernt!' : 'Als gelernt markieren'}</span>
              </button>
           </div>
         </div>
       </div>
 
       {/* TTS Controls */}
-      <div className="mt-8">
+      <div className="space-y-6">
         <SpeechControls text={currentText} />
-      </div>
 
-      {/* Speech Recognition Controls */}
-      <div className="mt-8">
+        {/* Speech Recognition Controls */}
         <SpeechRecognition 
           originalText={currentText}
           onResult={handleSpeechResult}
@@ -291,10 +293,10 @@ export default function Practice() {
           <button
             onClick={() => setChunkIndex((i) => Math.max(0, i - 1))}
             disabled={chunkIndex === 0}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-800 bg-gray-950 text-white font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors text-sm"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-800 bg-slate-900/40 text-slate-300 font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-slate-900 transition-colors text-xs"
           >
-            <ChevronLeft size={16} />
-            Previous Chunk
+            <ChevronLeft size={14} />
+            Vorheriger Abschnitt
           </button>
           <button
             onClick={() => {
@@ -305,11 +307,11 @@ export default function Practice() {
                 setChunkIndex(0);
               }
             }}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all text-sm"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all text-xs"
           >
             {chunkIndex < chunks.length - 1 ? (
-              <>Next Chunk <ChevronRight size={16} /></>
-            ) : 'Finish Chunks'}
+              <>Nächster Abschnitt <ChevronRight size={14} /></>
+            ) : 'Abschnitte beenden'}
           </button>
         </div>
       )}
@@ -335,46 +337,46 @@ export default function Practice() {
         />
       )}
 
-      {/* Navigation Controls */}
-      <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-gray-900 p-6 z-50">
+      {/* Fixed Bottom Navigation Controls */}
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-950/80 backdrop-blur-xl border-t border-slate-900/60 p-5 z-40">
         <div className="max-w-3xl mx-auto flex gap-4">
           <button
             onClick={handlePrevious}
             disabled={currentIndex === 0 && !(chunkMode && chunkIndex > 0)}
-            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-gray-800 bg-gray-950 text-white font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-800 bg-slate-900/40 text-slate-300 font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-slate-900 transition-all text-sm"
           >
-            <ChevronLeft size={20} />
-            <span>Previous</span>
+            <ChevronLeft size={16} />
+            <span>Zurück</span>
           </button>
           
           <button
             onClick={handleNext}
             disabled={currentIndex === sessionSentences.length - 1 && !(chunkMode && chunkIndex < chunks.length - 1)}
-            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border border-gray-800 bg-gray-950 text-white font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-gray-900 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-slate-850 bg-slate-900/40 text-slate-300 font-bold disabled:opacity-20 disabled:cursor-not-allowed hover:bg-slate-900 transition-all text-sm"
           >
-            <span>Next</span>
-            <ChevronRight size={20} />
+            <span>Weiter</span>
+            <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
       {/* Mastery Celebration */}
       {(progress === 100 || isComplete) && (
-        <div className="mt-12 bg-gradient-to-br from-green-600/20 to-cyan-600/20 border border-green-500/30 p-10 rounded-3xl text-center shadow-2xl overflow-hidden relative">
-          <Trophy size={80} className="absolute -right-4 -bottom-4 text-green-500/10 transform rotate-12" />
-           <h3 className="text-3xl font-black text-white mb-3">
-            {remainingMode ? 'Topic Completed Successfully!' : 'Mastery Achieved!'} 🎉
+        <div className="mt-12 bg-gradient-to-br from-green-500/10 to-blue-500/10 border border-green-500/20 p-10 rounded-3xl text-center shadow-2xl overflow-hidden relative">
+          <Trophy size={80} className="absolute -right-4 -bottom-4 text-green-500/5 transform rotate-12" />
+           <h3 className="text-2xl font-black text-white mb-3">
+            {remainingMode ? 'Thema erfolgreich beendet!' : 'Herzlichen Glückwunsch!'} 🎉
           </h3>
-          <p className="text-gray-400 text-lg mb-8">
+          <p className="text-slate-400 text-sm mb-6 max-w-md mx-auto">
             {remainingMode
-              ? "You've completed all remaining sentences in this topic. Great progress!"
-              : "You've successfully practiced all sentences in this topic."}
+              ? "Sie haben alle verbleibenden Sätze in diesem Thema abgeschlossen. Weiter so!"
+              : "Sie haben alle Sätze in diesem Thema erfolgreich gelernt."}
           </p>
           <button 
             onClick={() => navigate('/')}
-            className="bg-white text-black px-10 py-4 rounded-2xl font-black transition-all hover:scale-105 active:scale-95"
+            className="bg-white text-black px-8 py-3 rounded-xl font-bold transition-all hover:scale-103 active:scale-97 text-sm"
           >
-            Back to Dashboard
+            Zurück zur Übersicht
           </button>
         </div>
       )}
