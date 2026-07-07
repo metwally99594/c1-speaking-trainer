@@ -27,7 +27,7 @@ export function Layout({ children }: LayoutProps) {
       {/* Floating Glassmorphic Navbar */}
       <nav className="glass-panel sticky top-0 z-50 border-b border-slate-800/60 shadow-lg shadow-slate-950/20">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-white font-extrabold text-xl hover:scale-102 transition-all shrink-0">
+          <Link to="/" className="flex items-center gap-2 text-slate-100 font-extrabold text-xl hover:scale-102 transition-all shrink-0">
             <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-xl shadow-md">
               <BookOpen size={18} className="text-white" />
             </div>
@@ -84,7 +84,7 @@ export function Layout({ children }: LayoutProps) {
               className={cn(
                 "p-2 rounded-xl transition-all",
                 isActive('/settings')
-                  ? "bg-slate-900 text-white border border-slate-800"
+                  ? "bg-slate-900 text-slate-100 border border-slate-800"
                   : "text-slate-400 hover:text-slate-100 hover:bg-slate-900/40"
               )}
               title="Einstellungen"

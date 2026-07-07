@@ -87,10 +87,10 @@ export default function Login() {
           <div className="inline-flex bg-gradient-to-br from-blue-500 to-indigo-600 p-4 rounded-3xl shadow-xl shadow-blue-500/20 mb-4 animate-bounce" style={{ animationDuration: '3s' }}>
             <Shield size={32} className="text-white" />
           </div>
-          <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">
+          <h1 className="text-4xl font-extrabold text-slate-100 tracking-tight mb-2">
             C1 <span className="gradient-text font-black">Speaking Trainer</span>
           </h1>
-          <p className="text-gray-400 text-sm">
+          <p className="text-slate-500 text-sm">
             Simulieren Sie Ihre C1-Prüfung und meistern Sie Ihren Wortschatz.
           </p>
         </div>
@@ -103,7 +103,7 @@ export default function Login() {
               onClick={() => { setIsLoginTab(true); setError(''); }}
               className={cn(
                 "flex-1 py-4 text-center text-sm font-bold transition-all relative",
-                isLoginTab ? "text-blue-400 bg-slate-950/20" : "text-gray-500 hover:text-gray-300"
+                isLoginTab ? "text-blue-500 bg-slate-950/40" : "text-slate-500 hover:text-slate-300"
               )}
             >
               Anmelden
@@ -115,7 +115,7 @@ export default function Login() {
               onClick={() => { setIsLoginTab(false); setError(''); }}
               className={cn(
                 "flex-1 py-4 text-center text-sm font-bold transition-all relative",
-                !isLoginTab ? "text-blue-400 bg-slate-950/20" : "text-gray-500 hover:text-gray-300"
+                !isLoginTab ? "text-blue-500 bg-slate-950/40" : "text-slate-500 hover:text-slate-300"
               )}
             >
               Registrieren
@@ -156,7 +156,7 @@ export default function Login() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Max Mustermann"
-                      className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 rounded-xl pl-11 pr-4 py-3.5 text-white text-sm focus:outline-none transition-all"
+                      className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 rounded-xl pl-11 pr-4 py-3.5 text-slate-100 text-sm focus:outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -174,7 +174,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@example.com"
-                    className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 rounded-xl pl-11 pr-4 py-3.5 text-white text-sm focus:outline-none transition-all"
+                    className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 rounded-xl pl-11 pr-4 py-3.5 text-slate-100 text-sm focus:outline-none transition-all"
                   />
                 </div>
               </div>
@@ -191,7 +191,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 rounded-xl pl-11 pr-4 py-3.5 text-white text-sm focus:outline-none transition-all"
+                    className="w-full bg-slate-950/50 border border-slate-800 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 rounded-xl pl-11 pr-4 py-3.5 text-slate-100 text-sm focus:outline-none transition-all"
                   />
                 </div>
               </div>
