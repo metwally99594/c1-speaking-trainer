@@ -74,9 +74,12 @@ export default function Login() {
 
   return (
     <div className="min-h-[80vh] flex flex-col justify-center items-center relative py-12 px-4 overflow-hidden">
-      {/* Decorative Glowing Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '-3s' }}></div>
+      {/* Soothing Animated Background */}
+      <div className="aurora-bg">
+        <div className="aurora-blob aurora-1"></div>
+        <div className="aurora-blob aurora-2"></div>
+        <div className="aurora-blob aurora-3"></div>
+      </div>
 
       <div className="w-full max-w-md z-10 animate-fade-in-up">
         {/* Brand/Logo Header */}

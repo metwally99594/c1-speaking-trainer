@@ -16,7 +16,14 @@ export function Layout({ children }: LayoutProps) {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500 selection:text-white flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-500 selection:text-white flex flex-col font-sans relative">
+      {/* Soothing Animated Background */}
+      <div className="aurora-bg">
+        <div className="aurora-blob aurora-1"></div>
+        <div className="aurora-blob aurora-2"></div>
+        <div className="aurora-blob aurora-3"></div>
+      </div>
+
       {/* Floating Glassmorphic Navbar */}
       <nav className="glass-panel sticky top-0 z-50 border-b border-slate-800/60 shadow-lg shadow-slate-950/20">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
