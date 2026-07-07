@@ -75,37 +75,36 @@ body {
 .aurora-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.12; /* Slightly increased for visibility on all mobile/laptop screens */
-  mix-blend-mode: screen;
+  filter: blur(70px); /* Reduced blur to concentrate color on phone screens */
+  opacity: 0.18; /* Increased opacity for clear visibility */
   pointer-events: none;
 }
 
 .aurora-1 {
-  width: 480px;
-  height: 480px;
-  background: radial-gradient(circle, #3b82f6 0%, transparent 80%);
-  top: -10%;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
+  top: -5%;
   left: -5%;
-  animation: drift-1 25s infinite alternate ease-in-out;
+  animation: drift-1 20s infinite alternate ease-in-out;
 }
 
 .aurora-2 {
-  width: 520px;
-  height: 520px;
-  background: radial-gradient(circle, #8b5cf6 0%, transparent 80%);
-  bottom: -10%;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
+  bottom: -5%;
   right: -5%;
-  animation: drift-2 28s infinite alternate ease-in-out;
+  animation: drift-2 24s infinite alternate ease-in-out;
 }
 
 .aurora-3 {
-  width: 420px;
-  height: 420px;
-  background: radial-gradient(circle, #06b6d4 0%, transparent 80%);
-  top: 35%;
-  left: 25%;
-  animation: drift-3 26s infinite alternate ease-in-out;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, #06b6d4 0%, transparent 70%);
+  top: 40%;
+  left: 20%;
+  animation: drift-3 22s infinite alternate ease-in-out;
 }
 
 /* Standard CSS Keyframe Animations - Placed globally to guarantee browser execution */
