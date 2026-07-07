@@ -63,7 +63,7 @@
 
   color-scheme: dark;
   color: #e2e8f0;
-  background-color: #030304;
+  background-color: #000000;
 
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -75,7 +75,7 @@ body {
   display: block;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #020203;
+  background-color: #000000;
   overflow-x: hidden;
 }
 
@@ -85,12 +85,12 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #030304;
+  background: #000000;
 }
 ::-webkit-scrollbar-thumb {
   background: #12121a;
   border-radius: 9999px;
-  border: 2px solid #030304;
+  border: 2px solid #000000;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #1a1a26;
@@ -105,15 +105,15 @@ body {
   bottom: 0;
   z-index: -10;
   overflow: hidden;
-  background: #030304;
+  background: #000000;
   pointer-events: none;
 }
 
 .aurora-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(130px);
-  opacity: 0.05;
+  filter: blur(140px);
+  opacity: 0.03;
   mix-blend-mode: screen;
   pointer-events: none;
 }
@@ -124,7 +124,7 @@ body {
   background: radial-gradient(circle, #3b82f6 0%, transparent 75%);
   top: -15%;
   left: -10%;
-  animation: drift-1 30s infinite alternate ease-in-out;
+  animation: drift-1 55s infinite alternate ease-in-out;
 }
 
 .aurora-2 {
@@ -133,7 +133,7 @@ body {
   background: radial-gradient(circle, #8b5cf6 0%, transparent 75%);
   bottom: -15%;
   right: -10%;
-  animation: drift-2 35s infinite alternate ease-in-out;
+  animation: drift-2 65s infinite alternate ease-in-out;
 }
 
 .aurora-3 {
@@ -142,25 +142,25 @@ body {
   background: radial-gradient(circle, #06b6d4 0%, transparent 75%);
   top: 35%;
   left: 30%;
-  animation: drift-3 32s infinite alternate ease-in-out;
+  animation: drift-3 60s infinite alternate ease-in-out;
 }
 
 @keyframes drift-1 {
   0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(80px, 60px) scale(1.05); }
-  100% { transform: translate(-30px, 120px) scale(0.95); }
+  50% { transform: translate(60px, 40px) scale(1.03); }
+  100% { transform: translate(-20px, 90px) scale(0.97); }
 }
 
 @keyframes drift-2 {
   0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(-100px, -40px) scale(0.95); }
-  100% { transform: translate(40px, -90px) scale(1.05); }
+  50% { transform: translate(-80px, -30px) scale(0.97); }
+  100% { transform: translate(30px, -70px) scale(1.03); }
 }
 
 @keyframes drift-3 {
-  0% { transform: translate(0px, 0px) scale(0.95); }
-  50% { transform: translate(-60px, 80px) scale(1.05); }
-  100% { transform: translate(80px, -60px) scale(0.95); }
+  0% { transform: translate(0px, 0px) scale(0.97); }
+  50% { transform: translate(-45px, 60px) scale(1.03); }
+  100% { transform: translate(60px, -45px) scale(0.97); }
 }
 
 /* Custom UI Utilities */
