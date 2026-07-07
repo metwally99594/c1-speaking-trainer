@@ -26,7 +26,7 @@
 
   color-scheme: dark;
   color: #e2e8f0;
-  background-color: #000000;
+  background-color: #05050e; /* Midnight navy base */
 
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -38,7 +38,10 @@ body {
   display: block;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #000000;
+  /* Rich animated midnight gradient for eye comfort and mental health */
+  background: radial-gradient(circle at 50% 50%, #0f0c24 0%, #030208 100%);
+  background-size: 200% 200%;
+  animation: bg-gradient-shift 20s ease infinite;
   overflow-x: hidden;
 }
 
@@ -48,15 +51,15 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #000000;
+  background: #030208;
 }
 ::-webkit-scrollbar-thumb {
-  background: #12121a;
+  background: #1e1b4b;
   border-radius: 9999px;
-  border: 2px solid #000000;
+  border: 2px solid #030208;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #1a1a26;
+  background: #312e81;
 }
 
 /* Glowing Aurora Animated Background (Comfortable & Soothing) */
@@ -68,38 +71,38 @@ body {
   bottom: 0;
   z-index: -1;
   overflow: hidden;
-  background: #000000;
+  background: transparent;
   pointer-events: none;
 }
 
 .aurora-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(8vw); /* Responsive blur */
-  opacity: 0.16; /* Calming yet visible opacity */
+  filter: blur(5vw); /* Sharper, more concentrated glowing lights */
+  opacity: 0.28; /* Highly visible glowing color fields */
   pointer-events: none;
 }
 
 .aurora-1 {
   width: 45vw;
   height: 45vw;
-  min-width: 280px;
-  min-height: 280px;
-  background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
-  top: -10%;
-  left: -10%;
-  animation: drift-1 30s infinite alternate ease-in-out;
+  min-width: 300px;
+  min-height: 300px;
+  background: radial-gradient(circle, #3b82f6 0%, transparent 65%);
+  top: -5%;
+  left: -5%;
+  animation: drift-1 25s infinite alternate ease-in-out;
 }
 
 .aurora-2 {
   width: 40vw;
   height: 40vw;
-  min-width: 280px;
-  min-height: 280px;
-  background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
-  bottom: -10%;
-  right: -10%;
-  animation: drift-2 35s infinite alternate ease-in-out;
+  min-width: 300px;
+  min-height: 300px;
+  background: radial-gradient(circle, #8b5cf6 0%, transparent 65%);
+  bottom: -5%;
+  right: -5%;
+  animation: drift-2 28s infinite alternate ease-in-out;
 }
 
 .aurora-3 {
@@ -107,29 +110,35 @@ body {
   height: 35vw;
   min-width: 250px;
   min-height: 250px;
-  background: radial-gradient(circle, #06b6d4 0%, transparent 70%);
-  top: 30%;
-  left: 15%;
-  animation: drift-3 32s infinite alternate ease-in-out;
+  background: radial-gradient(circle, #10b981 0%, transparent 65%); /* Soothing green emerald */
+  top: 35%;
+  left: 20%;
+  animation: drift-3 26s infinite alternate ease-in-out;
 }
 
 /* Standard CSS Keyframe Animations - Placed globally to guarantee browser execution */
+@keyframes bg-gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 @keyframes drift-1 {
   0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(4vw, 3vh) scale(1.05); }
-  100% { transform: translate(-2vw, 6vh) scale(0.95); }
+  50% { transform: translate(6vw, 4vh) scale(1.08); }
+  100% { transform: translate(-3vw, 8vh) scale(0.92); }
 }
 
 @keyframes drift-2 {
   0% { transform: translate(0px, 0px) scale(1); }
-  50% { transform: translate(-5vw, -3vh) scale(0.95); }
-  100% { transform: translate(2vw, -5vh) scale(1.05); }
+  50% { transform: translate(-6vw, -4vh) scale(0.92); }
+  100% { transform: translate(3vw, -6vh) scale(1.08); }
 }
 
 @keyframes drift-3 {
-  0% { transform: translate(0px, 0px) scale(0.95); }
-  50% { transform: translate(-3vw, 4vh) scale(1.05); }
-  100% { transform: translate(4vw, -3vh) scale(0.95); }
+  0% { transform: translate(0px, 0px) scale(0.92); }
+  50% { transform: translate(-4vw, 5vh) scale(1.08); }
+  100% { transform: translate(5vw, -4vh) scale(0.92); }
 }
 
 @keyframes fade-in-up {
@@ -174,40 +183,40 @@ body {
 
 /* Custom UI Utilities */
 .glass-panel {
-  background: rgba(10, 10, 15, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(15, 15, 27, 0.7); /* Slightly brighter and warmer midnight tone */
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(99, 102, 241, 0.12); /* Soft indigo border glow */
 }
 
 .glass-panel-hover {
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .glass-panel-hover:hover {
-  background: rgba(12, 12, 20, 0.85);
-  border-color: rgba(59, 130, 246, 0.2);
-  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.7), 0 0 25px -5px rgba(59, 130, 246, 0.08);
+  background: rgba(20, 20, 35, 0.8);
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.6), 0 0 25px -5px rgba(99, 102, 241, 0.12);
   transform: translateY(-2px);
 }
 
 .neon-border-blue:hover {
   border-color: rgba(59, 130, 246, 0.3);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.12);
 }
 
 .neon-border-purple:hover {
   border-color: rgba(139, 92, 246, 0.3);
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.12);
 }
 
 .neon-border-green:hover {
   border-color: rgba(34, 197, 94, 0.3);
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.12);
 }
 
 .neon-border-orange:hover {
   border-color: rgba(249, 115, 22, 0.3);
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.12);
 }
 
 .gradient-text {
@@ -220,11 +229,11 @@ body {
 .gradient-btn {
   background: linear-gradient(135deg, #2563eb, #7c3aed);
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.2);
 }
 .gradient-btn:hover {
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  box-shadow: 0 6px 25px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 6px 25px rgba(37, 99, 235, 0.3);
   transform: translateY(-1px);
 }
 .gradient-btn:active {
