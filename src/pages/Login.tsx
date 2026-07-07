@@ -44,7 +44,7 @@ export default function Login() {
 
     try {
       if (isLoginTab) {
-        const res = loginUser(email, password);
+        const res = await loginUser(email, password);
         if (res.success) {
           setSuccess(true);
           setTimeout(() => navigate('/'), 400);
@@ -52,11 +52,11 @@ export default function Login() {
           setError(res.error || 'Fehler beim Anmelden.');
         }
       } else {
-        const res = registerUser(name, email, password);
+        const res = await registerUser(name, email, password);
         if (res.success) {
           // Update avatar to the emoji selected
           const updateProfile = useTopicStore.getState().updateUserProfile;
-          updateProfile(name, selectedAvatar);
+          await updateProfile(name, selectedAvatar);
           
           setSuccess(true);
           setTimeout(() => navigate('/'), 400);
