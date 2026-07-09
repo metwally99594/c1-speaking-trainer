@@ -359,17 +359,17 @@ export const useTopicStore = create<TopicState>()(
 
             set({ currentUser: newUser });
 
-            // Create initial state
-            await supabase.from('user_state').insert({
-              user_id: data.user.id,
-              topics: [],
-              exam_history: [],
-              word_stats: {},
-              sentence_chunks: {},
-              voice_settings: { voiceURI: '', pitch: 1, volume: 1, rate: 1 },
-              api_keys: { openrouter: '', groq: '' },
-              updated_at: new Date().toISOString()
-            });
+             // Create initial state using current local guest data
+             await supabase.from('user_state').insert({
+               user_id: data.user.id,
+               topics: get().topics || [],
+               exam_history: get().examHistory || [],
+               word_stats: get().wordStats || {},
+               sentence_chunks: get().sentenceChunks || {},
+               voice_settings: get().voiceSettings || { voiceURI: '', pitch: 1, volume: 1, rate: 1 },
+               api_keys: get().apiKeys || { openrouter: '', groq: '' },
+               updated_at: new Date().toISOString()
+             });
 
             return { success: true };
           } catch (err) {
@@ -435,19 +435,31 @@ export const useTopicStore = create<TopicState>()(
               console.warn('Error fetching user state from Supabase:', dbError.message);
             }
 
-            if (dbState) {
-              set({
-                currentUser: newUser,
-                topics: dbState.topics || [],
-                examHistory: dbState.exam_history || [],
-                wordStats: dbState.word_stats || {},
-                sentenceChunks: dbState.sentence_chunks || {},
-                voiceSettings: dbState.voice_settings || { voiceURI: '', pitch: 1, volume: 1, rate: 1 },
-                apiKeys: dbState.api_keys || { openrouter: '', groq: '' }
-              });
-            } else {
-              set({ currentUser: newUser });
-            }
+             if (dbState) {
+               const dbHasData = dbState.topics && dbState.topics.length > 0;
+               const localHasData = get().topics && get().topics.length > 0;
+
+               if (!dbHasData && localHasData) {
+                 // Cloud is empty but local has guest data -> upload local data to cloud
+                 set({ currentUser: newUser });
+                 await syncToSupabase(get());
+               } else {
+                 // Cloud is source of truth -> load cloud state
+                 set({
+                   currentUser: newUser,
+                   topics: dbState.topics || [],
+                   examHistory: dbState.exam_history || [],
+                   wordStats: dbState.word_stats || {},
+                   sentenceChunks: dbState.sentence_chunks || {},
+                   voiceSettings: dbState.voice_settings || { voiceURI: '', pitch: 1, volume: 1, rate: 1 },
+                   apiKeys: dbState.api_keys || { openrouter: '', groq: '' }
+                 });
+               }
+             } else {
+               // No cloud record exists -> create cloud record with local guest data
+               set({ currentUser: newUser });
+               await syncToSupabase(get());
+             }
 
             return { success: true };
           } catch (err) {
