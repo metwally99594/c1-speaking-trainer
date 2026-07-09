@@ -1,17 +1,22 @@
 import type { Grade, AIEvaluation, GradeCriterion, DetailedEvaluation, Teil2DetailedEvaluation } from './types';
 
-const POINTS: Record<Grade, number> = {
-  A: 8,
-  B: 5,
-  C: 2,
-  D: 0,
-};
+export const TOTAL_MAX = 48; // Official max points for TELC C1 Hochschule speaking exam
+export const PASS_THRESHOLD = 29; // Official pass threshold (60% of 48 = 28.8, rounded up to 29)
 
-export const TOTAL_MAX = 40;
-export const PASS_THRESHOLD = 29;
-
-export function gradeToPoints(grade: Grade, _criterion?: string): number {
-  return POINTS[grade] ?? 0;
+export function gradeToPoints(grade: Grade, criterion?: string): number {
+  if (criterion === 'teil_1a' || criterion === 'teil_2') {
+    // Max 6 points
+    const points: Record<Grade, number> = { A: 6, B: 4, C: 2, D: 0 };
+    return points[grade] ?? 0;
+  }
+  if (criterion === 'teil_1b') {
+    // Max 4 points
+    const points: Record<Grade, number> = { A: 4, B: 3, C: 1, D: 0 };
+    return points[grade] ?? 0;
+  }
+  // Language Quality (Max 8 points)
+  const points: Record<Grade, number> = { A: 8, B: 5, C: 2, D: 0 };
+  return points[grade] ?? 0;
 }
 
 const ALL_CRITERIA: GradeCriterion[] = [
@@ -26,11 +31,34 @@ export function calculateTotal(evaluation: Pick<AIEvaluation, GradeCriterion>): 
   return ALL_CRITERIA.reduce((sum, key) => sum + gradeToPoints(evaluation[key] as Grade), 0);
 }
 
+export function calculateOfficialTotal(
+  teil1a: Grade,
+  teil1b: Grade,
+  teil2: Grade,
+  fluessigkeit: Grade,
+  repertoire: Grade,
+  grammatik: Grade,
+  aussprache: Grade
+): number {
+  const p1a = gradeToPoints(teil1a, 'teil_1a');
+  const p1b = gradeToPoints(teil1b, 'teil_1b');
+  const p2 = gradeToPoints(teil2, 'teil_2');
+  
+  const pFlu = gradeToPoints(fluessigkeit);
+  const pRep = gradeToPoints(repertoire);
+  const pGra = gradeToPoints(grammatik);
+  const pAus = gradeToPoints(aussprache);
+
+  return p1a + p1b + p2 + pFlu + pRep + pGra + pAus;
+}
+
 export function hasPassed(totalPoints: number): boolean {
   return totalPoints >= PASS_THRESHOLD;
 }
 
-export function maxPointsFor(): number {
+export function maxPointsFor(criterion?: string): number {
+  if (criterion === 'teil_1a' || criterion === 'teil_2') return 6;
+  if (criterion === 'teil_1b') return 4;
   return 8;
 }
 
@@ -102,8 +130,23 @@ export function buildEvaluation(raw: RawEval): AIEvaluation {
     total_points: 0,
     passed: false,
   };
-  evaluation.total_points = calculateTotal(evaluation);
+
+  const t1aGrade = raw.per_part?.teil_1a?.grade || 'B';
+  const t1bGrade = raw.per_part?.teil_1b?.grade || 'B';
+  const t2Grade = raw.per_part?.teil_2?.grade || 'B';
+
+  evaluation.total_points = calculateOfficialTotal(
+    t1aGrade,
+    t1bGrade,
+    t2Grade,
+    evaluation.fluessigkeit,
+    evaluation.repertoire,
+    evaluation.grammatische_richtigkeit,
+    evaluation.aussprache
+  );
+  
   evaluation.passed = hasPassed(evaluation.total_points);
+
   if (raw.per_part) {
     const detailed: DetailedEvaluation = {
       teil_1a: buildPart(raw.per_part.teil_1a),
