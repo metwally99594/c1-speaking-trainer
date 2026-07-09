@@ -34,6 +34,7 @@ interface TopicState {
   loginUser: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logoutUser: () => Promise<void>;
   updateUserProfile: (name: string, avatar?: string) => Promise<void>;
+  fetchUserData: () => Promise<void>;
 }
 
 const normalizeWord = (text: string) =>
@@ -508,6 +509,37 @@ export const useTopicStore = create<TopicState>()(
           currentUser: updatedUser,
           userProfiles: { ...state.userProfiles, [normalizedEmail]: updatedUser },
         }));
+      },
+      fetchUserData: async () => {
+        if (!isSupabaseConfigured || !supabase) return;
+        const user = get().currentUser;
+        if (!user) return;
+
+        try {
+          const { data: dbState, error: dbError } = await supabase
+            .from('user_state')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (dbError) {
+            console.warn('Error fetching user state from Supabase on load:', dbError.message);
+            return;
+          }
+
+          if (dbState) {
+            set({
+              topics: dbState.topics || [],
+              examHistory: dbState.exam_history || [],
+              wordStats: dbState.word_stats || {},
+              sentenceChunks: dbState.sentence_chunks || {},
+              voiceSettings: dbState.voice_settings || { voiceURI: '', pitch: 1, volume: 1, rate: 1 },
+              apiKeys: dbState.api_keys || { openrouter: '', groq: '' }
+            });
+          }
+        } catch (err) {
+          console.warn('Error in fetchUserData:', err);
+        }
       },
     }),
     {
