@@ -276,12 +276,26 @@ B = Gut (vorwiegend C1)
 C = Ausreichend (vorwiegend nicht C1, B2-Niveau)
 D = Mangelhaft (unter B2)
 
-KRITERIEN (offizielle TELC C1 Hauptkriterien):
-1. Aufgabengerechtheit — Hat der Kandidat die Aufgabe erfüllt?
-2. Flüssigkeit — Redefluss und Kohärenz
-3. Repertoire — Wortschatz und sprachliche Mittel
-4. Grammatische Richtigkeit — Grammatikgenauigkeit
-5. Aussprache — Aussprache und Intonation (aus Text: Standard B vergeben, außer offensichtliche Fehler)
+KRITERIEN (Spezifische Richtlinien für TELC C1 Hochschule):
+1. Aufgabengerechtheit (Aufteilung nach Teilen):
+   - Teil 1A (Präsentation - max 6 Punkte): Strukturierte Darstellung (Einleitung, Hauptteil, Schluss), Stichworte statt ablesen.
+   - Teil 1B (Zusammenfassung/Fragen - max 4 Punkte): Relevante Zusammenfassung und präzise Reaktionen auf Fragen.
+   - Teil 2 (Diskussion - max 6 Punkte): Argumente abwägen, Standpunkt klären, partnerschaftlich agieren.
+
+2. Flüssigkeit (max 8 Punkte):
+   - Kein stottern/starkes zögern. Flüssiges, spontanes Sprechen ohne übermäßige Pausen.
+   - Selbstbewusstes Sprechen, keine ständigen Wortwiederholungen.
+
+3. Aussprache (max 8 Punkte):
+   - Korrekte Lautbildung, korrekter Wortakzent. Sehr wichtig, da Schüler hier oft leicht Punkte verlieren.
+
+4. Grammatische Richtigkeit (max 8 Punkte):
+   - Erwartet wird B2/C1-Niveau.
+   - Achte auf gehobene Strukturen: z.B. Genitiv-Präpositionen wie "aufgrund / wegen [Genitiv]" anstelle von "weil"; Konstruktionen wie "in der Lage sein" anstelle von "können".
+
+5. Repertoire / Wortschatz (max 8 Punkte):
+   - Abwechslungsreiche Wortwahl ohne Wiederholung. Niveau zwischen B2 und C1, Vermeidung einfacher B1-Wörter.
+   - Nutzung gehobener Konnektoren: z.B. "zudem / des Weiteren / daneben" anstelle von "außerdem"; Wörter wie "häufig" anstelle von "oft".
 
 WICHTIG: Antworte NUR mit validem JSON.
 - Keine Anführungszeichen (") innerhalb von Strings — verwende Apostrophe (') oder lasse sie weg.
