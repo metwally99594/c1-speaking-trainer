@@ -14,8 +14,16 @@ import TELCApp from './components/telc/TELCModule';
 import Login from './pages/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { useEffect } from 'react';
+import { useTopicStore } from './store/useTopicStore';
 
 function App() {
+  const initializeAuth = useTopicStore(state => state.initializeAuth);
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   return (
     <ErrorBoundary>
       <BrowserRouter>

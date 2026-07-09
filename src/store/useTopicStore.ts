@@ -35,6 +35,7 @@ interface TopicState {
   logoutUser: () => Promise<void>;
   updateUserProfile: (name: string, avatar?: string) => Promise<void>;
   fetchUserData: () => Promise<void>;
+  initializeAuth: () => Promise<void>;
 }
 
 const normalizeWord = (text: string) =>
@@ -539,6 +540,66 @@ export const useTopicStore = create<TopicState>()(
           }
         } catch (err) {
           console.warn('Error in fetchUserData:', err);
+        }
+      },
+      initializeAuth: async () => {
+        if (!isSupabaseConfigured || !supabase) return;
+
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+
+          if (session?.user) {
+            const userProfile = session.user.user_metadata || {};
+            const activeUser: User = {
+              id: session.user.id,
+              name: userProfile.name || session.user.email?.split('@')[0] || '',
+              email: session.user.email || '',
+              avatar: userProfile.avatar || '🤖',
+              createdAt: new Date(session.user.created_at).getTime()
+            };
+
+            set({ currentUser: activeUser });
+            await get().fetchUserData();
+          } else {
+            if (get().currentUser) {
+              set({
+                currentUser: null,
+                topics: [],
+                examHistory: [],
+                wordStats: {},
+                sentenceChunks: {},
+                voiceSettings: { voiceURI: '', pitch: 1, volume: 1, rate: 1 },
+                apiKeys: { openrouter: '', groq: '' }
+              });
+            }
+          }
+
+          supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session?.user) {
+              const userProfile = session.user.user_metadata || {};
+              const activeUser: User = {
+                id: session.user.id,
+                name: userProfile.name || session.user.email?.split('@')[0] || '',
+                email: session.user.email || '',
+                avatar: userProfile.avatar || '🤖',
+                createdAt: new Date(session.user.created_at).getTime()
+              };
+              set({ currentUser: activeUser });
+              await get().fetchUserData();
+            } else if (event === 'SIGNED_OUT') {
+              set({
+                currentUser: null,
+                topics: [],
+                examHistory: [],
+                wordStats: {},
+                sentenceChunks: {},
+                voiceSettings: { voiceURI: '', pitch: 1, volume: 1, rate: 1 },
+                apiKeys: { openrouter: '', groq: '' }
+              });
+            }
+          });
+        } catch (err) {
+          console.warn('Error initializing auth:', err);
         }
       },
     }),
