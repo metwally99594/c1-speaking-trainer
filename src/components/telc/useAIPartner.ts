@@ -124,7 +124,7 @@ export default function useAIPartner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const callAI = useCallback(async (systemPrompt: string, userMessage: string): Promise<string | null> => {
+  const callAI = useCallback(async (systemPrompt: string, userMessage: string, type: 'chat' | 'evaluate' = 'chat'): Promise<string | null> => {
     setLoading(true);
     setError(null);
     try {
@@ -136,6 +136,7 @@ export default function useAIPartner() {
         method: 'POST',
         headers,
         body: JSON.stringify({
+          type,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMessage },
@@ -342,7 +343,7 @@ WICHTIG:
 - Das "per_part" Feld ist Pflicht.
 - Für teil_1a und teil_1b: mindestens 2 content_notes und 2 language_notes.
 - Für teil_2: ALLE 6 Textfelder (inhalt, argumentation, reaktion, sprache, interaktion, gesamtkommentar) AUSFÜLLEN — keine leeren Strings.`;
-    const result = await callAI(prompt, 'Bewerte die Prüfungstranskripte nach TELC C1 Bewertungsskala.');
+    const result = await callAI(prompt, 'Bewerte die Prüfungstranskripte nach TELC C1 Bewertungsskala.', 'evaluate');
     if (!result) return null;
 
     const stripped = result.replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();

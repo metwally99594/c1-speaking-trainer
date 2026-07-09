@@ -8,7 +8,6 @@ export const config = {
 
 export default async function handler(req) {
   console.log('[TELC AI] handler called, method:', req.method);
-  console.log('[TELC AI] OPENROUTER_API_KEY inside handler:', !!process.env.OPENROUTER_API_KEY);
 
   // GET for diagnostics
   if (req.method === 'GET') {
@@ -35,7 +34,7 @@ export default async function handler(req) {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, type } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: 'Invalid messages' }), {
@@ -45,55 +44,102 @@ export default async function handler(req) {
     }
 
     const clientKey = req.headers.get('x-api-key');
-    const apiKey = clientKey || process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      const allVars = Object.keys(process.env).filter(k => !k.includes('SECRET') && !k.includes('KEY') && !k.includes('TOKEN'));
-      return new Response(JSON.stringify({
-        error: 'OPENROUTER_API_KEY not configured',
-        hint: 'Set OPENROUTER_API_KEY in Vercel Dashboard → Settings → Environment Variables → Production',
-        availableKeys: allVars,
-        hasOpenRouter: !!process.env.OPENROUTER_API_KEY,
-      }), {
-        status: 500,
+
+    if (type === 'chat') {
+      // 1. Conversational partner: Use Llama 3.3 70B on Groq for ultra-low latency
+      const groqKey = process.env.GROQ_API_KEY;
+      if (!groqKey) {
+        return new Response(JSON.stringify({
+          error: 'GROQ_API_KEY not configured on server',
+          hint: 'Set GROQ_API_KEY in Vercel project environment variables',
+        }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      console.log('[TELC AI] Routing to Groq (llama-3.3-70b-versatile)');
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 1000,
+          temperature: 0.7,
+          messages: messages.map(m => ({
+            role: m.role === 'system' ? 'system' : m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        return new Response(JSON.stringify({
+          error: `Groq API error: ${response.status}`,
+          detail: errorText,
+        }), {
+          status: response.status,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+
+    } else {
+      // 2. Exam Evaluation: Use DeepSeek Chat on OpenRouter for deep reasoning & JSON structure stability
+      const openRouterKey = clientKey || process.env.OPENROUTER_API_KEY;
+      if (!openRouterKey) {
+        return new Response(JSON.stringify({
+          error: 'OPENROUTER_API_KEY not configured on server',
+          hint: 'Set OPENROUTER_API_KEY in Vercel project environment variables',
+        }), {
+          status: 500,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      console.log('[TELC AI] Routing to OpenRouter (deepseek/deepseek-chat)');
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openRouterKey}`,
+        },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-chat',
+          max_tokens: 2000,
+          messages: messages.map(m => ({
+            role: m.role === 'system' ? 'system' : m.role === 'assistant' ? 'assistant' : 'user',
+            content: m.content,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        return new Response(JSON.stringify({
+          error: `OpenRouter API error: ${response.status}`,
+          detail: errorText,
+        }), {
+          status: response.status,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+
+      const data = await response.json();
+      return new Response(JSON.stringify(data), {
+        status: 200,
         headers: { 'content-type': 'application/json' },
       });
     }
-
-    const body = {
-      model: 'deepseek/deepseek-chat',
-      max_tokens: 2000,
-      messages: messages.map(m => ({
-        role: m.role === 'system' ? 'system' : m.role === 'assistant' ? 'assistant' : 'user',
-        content: m.content,
-      })),
-    };
-
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      return new Response(JSON.stringify({
-        error: `OpenRouter API error: ${response.status}`,
-        detail: errorText,
-      }), {
-        status: response.status,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-
-    const data = await response.json();
-
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message || 'Internal error' }), {
       status: 500,
