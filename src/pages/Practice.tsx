@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTopicStore } from '../store/useTopicStore';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -8,7 +8,7 @@ import { SpeechControls } from '../components/SpeechControls';
 import { SpeechRecognition } from '../components/SpeechRecognition';
 import { WordFocusModal } from '../components/WordFocusModal';
 import { SplitSentenceModal } from '../components/SplitSentenceModal';
-import { ChevronLeft, ChevronRight, CheckCircle2, Trophy, Scissors } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle2, Trophy, Scissors, Volume2 } from 'lucide-react';
 import type { Sentence, Topic } from '../models/types';
 
 function buildPracticeSentences(topic: Topic | undefined, remainingMode: boolean): Sentence[] {
@@ -54,6 +54,10 @@ export default function Practice() {
     ? chunks[chunkIndex]?.text ?? ''
     : currentSentence?.text ?? '';
   const isComplete = remainingMode && sessionSentences.length > 0 && completedInSession >= sessionSentences.length;
+  
+  const cumulativeText = useMemo(() => {
+    return sessionSentences.slice(0, currentIndex + 1).map((s) => s.text).join(' ');
+  }, [sessionSentences, currentIndex]);
 
   const handleNext = useCallback(() => {
     if (chunkMode && chunks.length > 0) {
@@ -276,6 +280,21 @@ export default function Practice() {
 
       {/* TTS Controls */}
       <div className="space-y-6">
+        {currentIndex > 0 && (
+          <div className="glass-panel p-6 rounded-3xl shadow-xl border border-slate-900">
+            <div className="flex items-center gap-2 text-indigo-400 mb-2">
+              <Volume2 size={18} />
+              <span className="text-[10px] font-black uppercase tracking-widest">
+                Fluss-Übung: Sätze 1 bis {currentIndex + 1} zusammenhören
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Hören Sie die bisher gelernten Sätze im Zusammenhang, um sich den Ablauf besser einzuprägen.
+            </p>
+            <SpeechControls text={cumulativeText} />
+          </div>
+        )}
+
         <SpeechControls text={currentText} />
 
         {/* Speech Recognition Controls */}
