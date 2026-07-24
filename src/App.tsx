@@ -10,7 +10,9 @@ import ExamHistory from './pages/ExamHistory';
 import WeakWords from './pages/WeakWords';
 import Settings from './pages/Settings';
 import GroqSttTest from './pages/GroqSttTest';
+import RideMode from './pages/RideMode';
 import TELCApp from './components/telc/TELCModule';
+import TrainingPlan from './pages/TrainingPlan';
 import Login from './pages/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -48,7 +50,9 @@ function App() {
                     <Route path="/words" element={<WeakWords />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/groq-stt-test" element={<GroqSttTest />} />
+                    <Route path="/ride/:topicId" element={<RideMode />} />
                     <Route path="/telc" element={<TELCApp />} />
+                    <Route path="/training" element={<TrainingPlan />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>

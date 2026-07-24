@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Piper TTS — large binary and model files
+piper-tts/backend/piper
+piper-tts/backend/piper.exe
+piper-tts/models/*.onnx
+piper-tts/models/*.onnx.json
+piper-tts/backend/.env

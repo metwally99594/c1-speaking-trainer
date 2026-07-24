@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+piper
+piper.exe
+setup.sh
+setup.ps1

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { BookOpen, Settings, AlertTriangle, Star, LogOut, LayoutDashboard, PlusCircle } from 'lucide-react';
+import { BookOpen, Settings, AlertTriangle, Star, LogOut, LayoutDashboard, PlusCircle, Target } from 'lucide-react';
 import { useTopicStore } from '../store/useTopicStore';
 import { cn } from '../utils/cn';
 
@@ -64,9 +64,23 @@ export function Layout({ children }: LayoutProps) {
               <span>TELC</span>
             </Link>
 
+            {/* Training Plan Link */}
+            <Link
+              to="/training"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all",
+                isActive('/training')
+                  ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                  : "text-slate-400 hover:text-slate-100 hover:bg-slate-900/40"
+              )}
+            >
+              <Target size={14} />
+              <span className="hidden md:inline">Training</span>
+            </Link>
+
             {/* Words Link */}
-            <Link 
-              to="/words" 
+            <Link
+              to="/words"
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all",
                 isActive('/words') 

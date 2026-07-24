@@ -296,7 +296,7 @@ export default function TELCModule() {
               {s.ai_evaluation && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: s.ai_evaluation.passed ? '#22c55e' : '#ef4444' }}>
-                    {s.ai_evaluation.total_points}/40
+                    {s.ai_evaluation.total_points}/48
                   </span>
                   <span style={{
                     fontSize: 11, padding: '3px 10px', borderRadius: 6,
@@ -416,7 +416,7 @@ export default function TELCModule() {
           <div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Gesamtpunktzahl</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: ev.passed ? '#22c55e' : '#ef4444' }}>
-              {ev.total_points}<span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 400 }}> / 40</span>
+              {ev.total_points}<span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 400 }}> / 48</span>
             </div>
           </div>
           <span style={{

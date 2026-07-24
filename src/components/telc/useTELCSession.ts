@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { LOCAL_STORAGE_KEYS } from './types';
 import type { TELCSession, PraesentationTopic, Zitat } from './types';
+import { supabase, isSupabaseConfigured } from '../../utils/supabaseClient';
+import { useTopicStore } from '../../store/useTopicStore';
 
 function generateId(): string {
   return 'xxxx-xxxx-xxxx'.replace(/x/g, () =>
@@ -27,6 +29,56 @@ function safeSet(key: string, value: unknown): boolean {
   }
 }
 
+async function syncSessionToSupabase(session: TELCSession): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+  const userId = useTopicStore.getState().currentUser?.id;
+  if (!userId) return;
+  try {
+    const { error } = await supabase
+      .from('telc_sessions')
+      .upsert(
+        { id: session.id, user_id: userId, session_json: session, created_at: new Date(session.timestamp).toISOString() },
+        { onConflict: 'id' },
+      );
+    if (error) console.warn('[TELC] Supabase session sync warning:', error.message);
+  } catch (err) {
+    console.warn('[TELC] Supabase session sync failed:', err);
+  }
+}
+
+async function fetchSessionsFromSupabase(): Promise<TELCSession[] | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const userId = useTopicStore.getState().currentUser?.id;
+  if (!userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from('telc_sessions')
+      .select('session_json')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) {
+      console.warn('[TELC] Supabase fetch sessions warning:', error.message);
+      return null;
+    }
+    return (data ?? []).map((row: { session_json: TELCSession }) => row.session_json);
+  } catch (err) {
+    console.warn('[TELC] Supabase fetch sessions failed:', err);
+    return null;
+  }
+}
+
+async function deleteSessionFromSupabase(id: string): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+  const userId = useTopicStore.getState().currentUser?.id;
+  if (!userId) return;
+  try {
+    await supabase.from('telc_sessions').delete().eq('id', id).eq('user_id', userId);
+  } catch (err) {
+    console.warn('[TELC] Supabase delete session failed:', err);
+  }
+}
+
 interface TELCSessionHook {
   currentSession: TELCSession | null;
   history: TELCSession[];
@@ -35,7 +87,7 @@ interface TELCSessionHook {
   loadSession: () => TELCSession | null;
   clearCurrent: () => void;
   addToHistory: (session: TELCSession) => void;
-  getHistory: () => TELCSession[];
+  getHistory: () => void;
   deleteFromHistory: (id: string) => void;
   clearHistory: () => void;
 }
@@ -92,12 +144,20 @@ export default function useTELCSession(): TELCSessionHook {
     const updated = [session, ...existing].slice(0, 50);
     safeSet(LOCAL_STORAGE_KEYS.HISTORY, updated);
     setHistory(updated);
+    syncSessionToSupabase(session);
   }, []);
 
-  const getHistory = useCallback((): TELCSession[] => {
-    const h = safeGet<TELCSession[]>(LOCAL_STORAGE_KEYS.HISTORY) || [];
-    setHistory(h);
-    return h;
+  const getHistory = useCallback((): void => {
+    fetchSessionsFromSupabase().then(remote => {
+      if (remote && remote.length > 0) {
+        const merged = remote;
+        safeSet(LOCAL_STORAGE_KEYS.HISTORY, merged.slice(0, 50));
+        setHistory(merged);
+      } else {
+        const local = safeGet<TELCSession[]>(LOCAL_STORAGE_KEYS.HISTORY) || [];
+        setHistory(local);
+      }
+    });
   }, []);
 
   const deleteFromHistory = useCallback((id: string) => {
@@ -106,6 +166,7 @@ export default function useTELCSession(): TELCSessionHook {
       safeSet(LOCAL_STORAGE_KEYS.HISTORY, updated);
       return updated;
     });
+    deleteSessionFromSupabase(id);
   }, []);
 
   const clearHistory = useCallback(() => {

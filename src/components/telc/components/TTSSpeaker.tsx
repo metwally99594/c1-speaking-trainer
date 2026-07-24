@@ -1,5 +1,5 @@
 import { Volume2, Square } from 'lucide-react';
-import useTTS from '../useTTS';
+import useTTSAdapter from '../tts/useTTSAdapter';
 
 interface TTSSpeakerProps {
   text: string;
@@ -7,7 +7,7 @@ interface TTSSpeakerProps {
 }
 
 export default function TTSSpeaker({ text, compact }: TTSSpeakerProps) {
-  const { speak, stop, speaking } = useTTS();
+  const { speak, stop, speaking } = useTTSAdapter();
 
   if (compact) {
     return (
